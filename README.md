@@ -5,12 +5,27 @@
 
 A comprehensive tool for downloading and organizing Thinkific courses for Plex media server. ThinkiPlex combines the power of the Thinki-Downloader PHP script with Python-based organization tools to create a seamless workflow for managing your Thinkific courses in Plex.
 
+## Enhance Your Learning Experience
+
+ThinkiPlex is designed to help you get the most out of your online courses:
+
+- **Focus on Learning, Not Note-Taking**: With automatic transcription and AI-generated summaries, you can fully engage with the course content without worrying about taking notes.
+- **Create a Personal Knowledge Base**: Build a searchable archive of your courses with transcripts and summaries for easy reference.
+- **Review Key Concepts**: AI summaries highlight the most important concepts, making review sessions more efficient.
+- **Offline Access**: Download courses for offline viewing in your preferred media player or Plex.
+- **Organized Content**: Keep all your course materials neatly organized and easily accessible.
+
 ## Features
 
 - **Course Download**: Download Thinkific courses using the PHP-based downloader
 - **Plex Organization**: Organize course content into a Plex-friendly structure
 - **Metadata Management**: Add proper metadata to video files for better Plex integration
 - **Audio Extraction**: Extract audio from videos and add metadata to audio files
+- **Transcription**: Transcribe audio files using AssemblyAI with speaker diarization
+- **AI Summaries**: Generate comprehensive class notes from transcriptions using Claude AI
+  - Multiple prompt types for different summary styles (comprehensive, course notes, analysis)
+  - Support for latest Claude models (3.7, 3.5)
+  - Process specific sessions or entire courses
 - **Incremental Updates**: Support for checking and downloading only new course content
 - **Docker Support**: Run the PHP downloader in a Docker container for easier setup
 - **Interactive CLI**: User-friendly command-line interface with interactive prompts
@@ -31,9 +46,11 @@ The following content types are currently supported:
 
 ### Prerequisites
 
-- Python 3.6 or higher
+- Python 3.8 or higher
 - Docker (optional, but recommended for the PHP downloader)
-- ffmpeg (optional, but recommended for media processing)
+- ffmpeg (required for media processing)
+- AssemblyAI API key (for transcription)
+- Anthropic API key (for Claude AI summaries)
 
 ### Installation Steps
 
@@ -68,6 +85,16 @@ The following content types are currently supported:
    pip install -e .
    ```
 
+5. Set up API keys:
+
+   ```bash
+   # Copy the sample .env file
+   cp config/.env.sample config/.env
+
+   # Edit the .env file with your API keys
+   nano config/.env  # or use any editor
+   ```
+
 ## Quick Start
 
 1. Run the setup wizard to configure your first course:
@@ -96,6 +123,129 @@ To download courses from Thinkific, you need to provide authentication data:
    - `date` header value (for CLIENT_DATE)
    - `cookie` header value (for COOKIE_DATA)
 
+## Transcription and AI Summaries
+
+ThinkiPlex includes powerful features for transcribing course content and generating AI summaries, allowing you to focus on learning rather than note-taking. These features help you:
+
+- **Focus on the content** during live sessions without worrying about taking notes
+- **Review key concepts** with AI-generated summaries that capture the essence of each session
+- **Search through transcripts** to find specific information mentioned in the course
+- **Create a knowledge base** of your courses for future reference
+
+### Setting Up Transcription and AI Summaries
+
+1. **Setup API Keys**: You need API keys for AssemblyAI and Anthropic:
+   - Get an AssemblyAI API key from [https://www.assemblyai.com/](https://www.assemblyai.com/)
+   - Get an Anthropic API key from [https://console.anthropic.com/](https://console.anthropic.com/)
+   - Add both keys to your `.env` file:
+
+     ```
+     ASSEMBLYAI_API_KEY=your_assemblyai_key
+     ANTHROPIC_API_KEY=your_anthropic_key
+     ```
+
+2. **Configure Claude Models and Prompts**: ThinkiPlex supports multiple Claude models and prompt types. You can configure these in `config/thinkiplex.yaml`:
+
+   ```yaml
+   claude:
+     models:
+       claude-3-7-sonnet-latest:
+         name: "Claude 3.7 Sonnet"
+         context_window: 200000
+         max_output_tokens: 8192
+         description: "Latest Claude model with hybrid reasoning capabilities"
+         is_default: true
+       claude-3-5-sonnet-latest:
+         name: "Claude 3.5 Sonnet"
+         context_window: 200000
+         max_output_tokens: 8192
+         description: "Enhanced reasoning and coding skills"
+         is_default: false
+
+     prompts:
+       defaults:
+         summarize: |
+           Please provide a concise summary of the following content.
+         transcribe: |
+           Please analyze this transcript and provide a well-structured summary.
+         analyze: |
+           Please perform a detailed analysis of the following content.
+         comprehensive: |
+           ===Comprehensive Content Summarizer===
+
+           You are an Expert Content Summarizer with a talent for capturing both key facts and underlying context.
+           Your summaries include essential information, meaningful context, philosophical underpinnings, and subtle nuances.
+           You prioritize comprehensiveness over brevity, ensuring nothing important is missed.
+         course_notes: |
+           ===Course Notes Generator===
+
+           Create detailed course notes from this transcript, organizing key concepts, examples, and actionable takeaways.
+           Format with clear headings, bullet points, and highlight important terminology.
+   ```
+
+### Using Transcription and AI Summaries
+
+You can generate transcriptions and summaries in several ways:
+
+1. **Command Line**:
+
+   ```bash
+   # Process a course with transcription and AI summaries
+   python -m thinkiplex --course your-course-name --transcribe
+
+   # Customize the Claude model and prompt type
+   python -m thinkiplex --course your-course-name --transcribe --claude-model claude-3-7-sonnet-latest --prompt-type comprehensive
+
+   # Disable speaker diarization (not recommended for multi-speaker content)
+   python -m thinkiplex --course your-course-name --transcribe --no-diarization
+   ```
+
+2. **Interactive Menu**:
+   - Run `python -m thinkiplex`
+   - Select option 9: "Generate transcriptions and AI summaries"
+   - Follow the interactive prompts to:
+     - Select a course
+     - Choose a Claude model
+     - Enable/disable speaker diarization
+     - Select a prompt type
+     - Process specific download directories or all course materials
+
+3. **Process Specific Sessions**:
+   - The interactive menu allows you to select specific download directories to process
+   - This is useful for processing only new content or reprocessing specific sessions
+
+### Output Files
+
+The transcription and AI summary process creates:
+
+- **Transcripts**: Saved as `{class_name}_transcript.txt` in a `transcripts` directory within each class folder
+- **AI Summaries**: Saved as `{class_name}_summary.md` in a `summaries` directory within each class folder
+
+The summaries are formatted in Markdown, making them easy to read and navigate.
+
+### Available Prompt Types
+
+ThinkiPlex includes several pre-configured prompt types for different summary styles:
+
+- **summarize**: Basic summary focusing on key points
+- **transcribe**: Summary specifically designed for transcripts
+- **analyze**: Detailed analysis with themes, arguments, and insights
+- **comprehensive**: In-depth summary capturing key facts, context, and nuances
+- **course_notes**: Structured course notes with key concepts and actionable takeaways
+
+You can customize these prompts or add your own in the configuration file.
+
+### Speaker Diarization
+
+Speaker diarization identifies different speakers in the audio, making transcripts more readable by labeling who is speaking. This is especially useful for:
+
+- Courses with multiple instructors
+- Q&A sessions
+- Panel discussions
+- Interactive workshops
+
+Speaker diarization is enabled by default but can be disabled if not needed.
+
 ## Configuration
 
 ThinkiPlex uses a YAML configuration file located at `config/thinkiplex.yaml`. A sample configuration file is provided at `config/thinkiplex.yaml.sample`.
@@ -110,6 +260,42 @@ global:
   audio_quality: 0  # 0 (best) to 9 (worst)
   audio_format: "mp3"  # Options: mp3, aac, flac, ogg
   ffmpeg_presentation_merge: true  # Whether to merge audio and video files of presentations
+```
+
+### Claude AI Configuration
+
+```yaml
+claude:
+  models:
+    claude-3-7-sonnet-latest:
+      name: "Claude 3.7 Sonnet"
+      context_window: 200000
+      max_output_tokens: 8192
+      description: "Latest Claude model with hybrid reasoning capabilities"
+      is_default: true
+    claude-3-5-sonnet-latest:
+      name: "Claude 3.5 Sonnet"
+      context_window: 200000
+      max_output_tokens: 8192
+      description: "Enhanced reasoning and coding skills"
+      is_default: false
+
+  prompts:
+    defaults:
+      summarize: |
+        Please provide a concise summary of the following content.
+      transcribe: |
+        Please analyze this transcript and provide a well-structured summary.
+      analyze: |
+        Please perform a detailed analysis of the following content.
+      comprehensive: |
+        ===Comprehensive Content Summarizer===
+
+        You are an Expert Content Summarizer with a talent for capturing both key facts and underlying context.
+      course_notes: |
+        ===Course Notes Generator===
+
+        Create detailed course notes from this transcript, organizing key concepts.
 ```
 
 ### Course Configuration
@@ -177,6 +363,10 @@ python -m thinkiplex --cleanup
 | `--skip-organize` | Skip organizing the course content |
 | `--extract-audio` | Extract audio from video files |
 | `--skip-audio` | Skip extracting audio from video files |
+| `--transcribe` | Generate transcriptions and AI summaries for course materials |
+| `--claude-model MODEL` | Claude model to use for AI summaries (default: uses the model marked as default in config) |
+| `--no-diarization` | Disable speaker diarization in transcriptions |
+| `--prompt-type TYPE` | Prompt type to use for AI summaries (options: summarize, transcribe, analyze, comprehensive, course_notes) |
 | `--verbose` | Enable verbose logging |
 | `--log-file FILE` | Path to the log file |
 
@@ -204,15 +394,25 @@ thinkiplex/              # Main package
 │   ├── __init__.py
 │   ├── metadata.py      # Metadata handling
 │   ├── media.py         # Media processing
-│   └── plex.py          # Plex organization
+│   └── main.py          # Main organizer module
+├── transcribe/          # Transcription and AI summary functionality
+│   ├── __init__.py
+│   ├── processor.py     # Main transcription processor
+│   └── services/        # External service integrations
+│       ├── __init__.py
+│       ├── assemblyai_service.py  # AssemblyAI integration
+│       └── claude_service.py      # Claude AI integration
 └── utils/               # Utility modules
     ├── __init__.py
     ├── config.py        # Configuration utilities
-    └── logging.py       # Logging utilities
+    ├── exceptions.py    # Custom exceptions
+    ├── logging.py       # Logging utilities
+    ├── parallel.py      # Parallel processing utilities
+    └── schemas.py       # Configuration schemas
 
 config/                  # Configuration files
 ├── thinkiplex.yaml      # Main configuration file
-└── php_downloader.env   # PHP downloader environment file
+└── .env                 # Environment variables for API keys
 
 data/                    # Data directory
 └── courses/             # Course data

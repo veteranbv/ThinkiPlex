@@ -1,20 +1,132 @@
 global:
-  base_dir: "/path/to/thinkiplex"
+  base_dir: "/path/to/your/media/directory"
   video_quality: "720p"  # Options: Original File, 1080p, 720p, 540p, 360p, 224p
   extract_audio: true
   audio_quality: 0  # 0 (best) to 9 (worst)
   audio_format: "mp3"  # Options: mp3, aac, flac, ogg
   ffmpeg_presentation_merge: true  # Whether to merge audio and video files of presentations
 
+# Claude AI models configuration
+claude:
+  models:
+    claude-3-7-sonnet-latest:
+      name: "Claude 3.7 Sonnet"
+      context_window: 200000
+      max_output_tokens: 8192
+      description: "Latest Claude model with hybrid reasoning and extended thinking capabilities"
+      is_default: true
+    claude-3-5-sonnet-latest:
+      name: "Claude 3.5 Sonnet"
+      context_window: 200000
+      max_output_tokens: 8192
+      description: "Enhanced reasoning, state-of-the-art coding skills, computer use"
+      is_default: false
+
+  # Prompt configurations
+  # You can configure prompts in two ways:
+  # 1. Define them directly in this YAML file under 'defaults'
+  # 2. Store them in separate text files and reference them under 'files'
+  prompts:
+    # Default prompts embedded in the config
+    defaults:
+      summarize: |
+        Please provide a comprehensive summary of the following content.
+        Focus on the main ideas, key points, and important details.
+        Organize the summary in a clear, structured format with headings where appropriate.
+      transcribe: |
+        Please analyze this transcript and provide a well-structured summary.
+        Identify the main topics, key insights, and important takeaways.
+        Format your response with clear headings and bullet points where appropriate.
+      analyze: |
+        Please perform a detailed analysis of the following content.
+        Identify the main themes, arguments, evidence, and conclusions.
+        Evaluate the strengths and weaknesses of the content.
+        Provide insights and connections to broader contexts where relevant.
+      comprehensive: |
+        ===Comprehensive Content Summarizer===
+
+        <System>:
+        You are an Expert Content Summarizer with a talent for capturing both key facts and underlying context. Your summaries include essential information, meaningful context, philosophical underpinnings, and subtle nuances that others might overlook. You prioritize comprehensiveness over brevity, ensuring nothing important is missed, while still organizing information efficiently. When uncertain about details, you clearly indicate this rather than filling gaps with assumptions.
+
+        <Context>:
+        The user will provide content (YouTube videos, articles, books, podcasts, or other media) they want thoroughly summarized. They value comprehensive understanding over quick highlights, and specifically want to capture contextual elements and philosophical frameworks that might be dismissed as "fluff" by less thorough summarizes.
+
+        <Instructions>:
+        1. Begin by identifying the content type, creator/author, title, and publication date, if available.
+
+        2. Create a multi-layered summary with these components:
+        - Core Thesis/Main Argument (1-2 sentences identifying the central point)
+        - Key Points Summary (bulleted list of crucial facts, arguments, or conclusions)
+        - Contextual Framework (identify the philosophical, theoretical, historical, or cultural context)
+        - Detailed Breakdown (section-by-section or chronological summary capturing all significant content)
+        - Nuanced Perspectives (note any competing viewpoints, counterarguments, or qualifiers presented)
+        - Underlying Assumptions (identify unstated premises, worldviews, or biases that inform the content)
+
+        3. Pay special attention to:
+        - Abstract concepts, philosophical positions, and theoretical frameworks
+        - Historical or cultural context that shapes the content Methodological approaches or reasoning patterns used
+        - Qualifiers, limitations, or nuances the creator acknowledges
+        - Connections to broader ideas, movements, or disciplines Implications or applications suggested by the content
+
+        4. When information is unclear or missing:
+        - Clearly indicate gaps or ambiguities with phrases like "The content does not specify..."
+        - Avoid filling in missing details with assumptions
+        - If the content contains potentially contradictory elements, note these tensions explicitly
+
+        5. For content with citations or references to other works:
+        - Note key sources referenced and their significance to the argument
+        - Identify intellectual traditions or schools of thought being drawn upon
+      course_notes: |
+        # Course Note Taker
+        Act as an expert note-taker and academic assistant with the ability to adapt to any subject matter. I am providing you with a diarized transcript of an online course lecture that includes multiple speakers (e.g., instructor, guest speakers, or students) with their dialogue labeled by speaker ID and timestamps. Your task is to analyze the entire transcript and produce detailed, world-class class notes that are concise yet comprehensive, capturing all key concepts, explanations, examples, and insights across any subject.
+
+        **Please structure the notes as follows:**
+
+        1. **Overview**: Begin with a brief summary of the lecture's main topics or themes.
+        2. **Key Concepts**: Identify and clearly define the most important ideas, terms, and principles discussed, explaining their relevance to the lecture's focus.
+        3. **Detailed Explanations**:
+           - Break down complex or significant topics into digestible parts.
+           - Elaborate on each concept with clarity, including examples, analogies, or illustrations provided by the speakers.
+           - For any overlapping dialogue or interjections, merge or separate the content as necessary and note any educated guesses with "[Assumed based on context]."
+        4. **Speaker Insights**: Highlight notable contributions from different speakers, attributing key ideas appropriately without over-relying on timestamps.
+        5. **Visual Aids**: If the transcript includes references to visual content (such as slides, diagrams, or charts), include brief descriptions or placeholders for these elements.
+        6. **Connections**: Draw connections between concepts within the lecture and, where applicable, relate them to broader themes or ideas in the course.
+        7. **Actionable Takeaways**: End with a short list of practical applications, study tips, or follow-up questions that stem from the lecture content.
+        8. **Questions for Further Study (Optional)**: Include any thought-provoking questions or topics that might warrant deeper research or exploration.
+
+        Write the notes in a clear, engaging, and professional tone, suitable for a student aiming to deeply understand and excel in any course. Prioritize accuracy and clarity while synthesizing the information, and avoid unnecessary filler. If any part of the transcript is ambiguous or incomplete, indicate it briefly with "[Assumed based on context]."
+
+    # External prompt file paths (relative to config directory)
+    # Create these files to customize prompts without changing the config
+    files:
+      summarize: "prompts/summarize_prompt.txt"
+      transcribe: "prompts/transcribe_prompt.txt"
+      analyze: "prompts/analyze_prompt.txt"
+      comprehensive: "prompts/comprehensive_prompt.txt"
+      course_notes: "prompts/course_notes_prompt.txt"
+
+    # Which prompt source to use: 'default' or 'file'
+    # Set to 'file' to use the external prompt files
+    use_source: "default"
+
+    # Default prompt type to use if not specified
+    # Options: 'summarize', 'transcribe', 'analyze', 'comprehensive', 'course_notes'
+    # - 'comprehensive': Detailed multi-layered summary with context and nuance
+    # - 'course_notes': Structured notes for course lectures with speaker insights
+    # - 'summarize': Basic summary of content
+    # - 'transcribe': Summary focused on transcribed content
+    # - 'analyze': Analytical breakdown of content
+    default_type: "comprehensive"
+
 courses:
-  course-name:
-    course_link: "https://example.thinkific.com/courses/take/course-name"
-    show_name: "Course Name"  # Name to use in Plex
-    season: "01"  # Season number for Plex
-    video_quality: "720p"  # Override global setting
-    extract_audio: true  # Override global setting
-    audio_quality: 0  # Override global setting
-    audio_format: "mp3"  # Override global setting
-    client_date: ""  # Date header from network request (see README for instructions)
-    cookie_data: ""  # Cookie data from network request (see README for instructions)
-    video_download_quality: "720p"  # Options: Original File, 1080p, 720p, 540p, 360p, 224p
+  example-course:
+    course_link: "https://example.thinkific.com/courses/take/example-course"
+    show_name: "Example Course"
+    season: "01"
+    video_quality: "720p"
+    extract_audio: true
+    audio_quality: 0
+    audio_format: "mp3"
+    client_date: "Sat, 15 Feb 2025 18:30:23 GMT"
+    cookie_data: "your_cookie_data_here"
+    video_download_quality: "720p"

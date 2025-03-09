@@ -4,8 +4,10 @@ Scripts Module
 This module provides functions that replace the shell scripts in the root directory.
 """
 
+import json
 import logging
 import os
+import shutil
 import subprocess
 from pathlib import Path
 from typing import List, Optional
@@ -137,9 +139,7 @@ def run_php_downloader_docker(
     logger.info("Running PHP downloader with Docker...")
 
     if check_updates_only:
-        logger.warning(
-            "The check_updates_only flag is not directly supported by the PHP script."
-        )
+        logger.warning("The check_updates_only flag is not directly supported by the PHP script.")
         logger.warning(
             "The Docker container will download all content, but we'll treat it as an update check."
         )
@@ -198,7 +198,7 @@ def run_php_downloader_docker(
         env["COURSE_NAME"] = course_name
 
         # Run docker compose with environment variables
-        cmd = ["docker", "compose", "up"]
+        cmd = ["docker", "compose", "-f", "compose.yaml", "up"]
 
         logger.info(f"Running Docker command from directory: {os.getcwd()}")
         logger.info(f"Command: {' '.join(cmd)}")
@@ -223,6 +223,115 @@ def run_php_downloader_docker(
         logger.error(f"Unexpected error running Docker: {e}")
         return False
     finally:
+        # Change back to the base directory
+        os.chdir(base_dir)
+
+
+def run_php_downloader_docker_selective(
+    json_file: str,
+    client_date: str = "",
+    cookie_data: str = "",
+    video_quality: str = "720p",
+    course_name: str = "",
+) -> bool:
+    """
+    Run the PHP downloader with Docker for selective downloads.
+
+    Args:
+        json_file: Path to the JSON file with course data
+        client_date: Client date for authentication
+        cookie_data: Cookie data for authentication
+        video_quality: Video quality to download
+        course_name: Name of the course folder
+
+    Returns:
+        True if successful, False otherwise
+    """
+    logger.info("Running PHP downloader with Docker for selective downloads...")
+
+    # Get the base directory
+    base_dir = Path.cwd()
+
+    # Set up paths
+    php_dir = base_dir / "thinkiplex" / "downloader" / "php"
+
+    # Check if the PHP directory exists
+    if not php_dir.exists():
+        logger.error(f"PHP directory not found: {php_dir}")
+        return False
+
+    # Check if Docker files exist
+    compose_file = php_dir / "compose.selective.yaml"
+    if not compose_file.exists():
+        logger.error(f"Docker compose file not found: {compose_file}")
+        return False
+
+    # Check if the JSON file exists
+    json_path = Path(json_file)
+    if not json_path.exists():
+        logger.error(f"JSON file not found: {json_path}")
+        return False
+
+    # Extract course name from JSON if not provided
+    if not course_name:
+        try:
+            with open(json_path, "r") as f:
+                data = json.load(f)
+                course_name = data["course"]["slug"]
+                logger.info(f"Extracted course name from JSON: {course_name}")
+        except Exception as e:
+            logger.warning(
+                f"Could not extract course name from JSON: {e}. Using 'course' as default."
+            )
+            course_name = "course"
+
+    # Create the course data directory if it doesn't exist
+    course_data_dir = base_dir / "data" / "courses" / course_name / "downloads"
+    os.makedirs(course_data_dir, exist_ok=True)
+    logger.info(f"Ensuring course data directory exists: {course_data_dir}")
+
+    # Copy the JSON file to the PHP directory
+    json_dest = php_dir / json_path.name
+    shutil.copy2(json_path, json_dest)
+    logger.info(f"Copied JSON file to: {json_dest}")
+
+    # Change to the PHP directory
+    os.chdir(php_dir)
+
+    try:
+        # Set environment variables for Docker
+        env = os.environ.copy()
+        env["COURSE_DATA_FILE"] = json_path.name
+        env["CLIENT_DATE"] = client_date
+        env["COOKIE_DATA"] = cookie_data
+        env["VIDEO_DOWNLOAD_QUALITY"] = video_quality
+        env["COURSE_NAME"] = course_name
+
+        # Run docker compose with environment variables
+        cmd = ["docker", "compose", "-f", "compose.selective.yaml", "up"]
+
+        logger.info(f"Running Docker command from directory: {os.getcwd()}")
+        logger.info(f"Command: {' '.join(cmd)}")
+        logger.info(f"JSON file: {json_path.name}")
+        logger.info(f"Course name: {course_name}")
+        logger.info(f"Data directory: {course_data_dir}")
+
+        subprocess.run(cmd, check=True, env=env)
+
+        logger.info("Docker selective download completed successfully")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error running Docker for selective download: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error running Docker for selective download: {e}")
+        return False
+    finally:
+        # Clean up the copied JSON file
+        if json_dest.exists():
+            json_dest.unlink()
+            logger.info(f"Removed temporary JSON file: {json_dest}")
+
         # Change back to the base directory
         os.chdir(base_dir)
 

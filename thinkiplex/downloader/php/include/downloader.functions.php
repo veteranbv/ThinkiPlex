@@ -44,9 +44,10 @@ function chapterwise_download($datas)
 {
     global $contentsdata, $p, $root_project_dir, $FFMPEG_PRESENTATION_MERGE_FLAG, $video_download_quality;
     global $download_stats; // Add global stats variable
+    global $pwd; // Add pwd to global variables
 
-    // Initialize tracking data once
-    $tracking_file = $root_project_dir . "/.download_tracking";
+    // Initialize tracking data once - store in course directory instead of PHP directory
+    $tracking_file = $pwd . "/.download_tracking";
     if (!file_exists($tracking_file)) {
         @mkdir(dirname($tracking_file), 0777, true);
         file_put_contents($tracking_file, "{}");

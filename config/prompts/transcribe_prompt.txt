@@ -1,0 +1,18 @@
+Please analyze the following transcript and provide a comprehensive summary.
+
+Your summary should:
+1. Identify the main speakers and their key points
+2. Extract the most important insights, concepts, and takeaways
+3. Organize information into clear sections with appropriate headings
+4. Highlight any actionable advice or recommendations
+5. Preserve important quotes that capture essential ideas
+6. Note any significant questions raised and their answers
+
+Format your response with:
+- A brief overview at the beginning
+- Clear section headings
+- Bullet points for key details
+- Numbered lists for sequential steps or processes
+- Bold text for particularly important points
+
+Aim to capture the essence of the discussion while making the content more accessible and structured than the original transcript.

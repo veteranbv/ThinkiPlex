@@ -19,16 +19,18 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Guides:
-    - Installation: guides/installation.md
-    - Configuration: guides/configuration.md
-    - Authentication: guides/authentication.md
-    - Development: guides/development.md
+      - Installation: guides/installation.md
+      - Configuration: guides/configuration.md
+      - Authentication: guides/authentication.md
+      - Transcription & AI: guides/transcription.md
+      - Development: guides/development.md
   - API Reference:
-    - CLI: api/cli.md
-    - Configuration: api/config.md
-    - Downloader: api/downloader.md
-    - Organizer: api/organizer.md
-    - Utilities: api/utils.md
+      - CLI: api/cli.md
+      - Configuration: api/config.md
+      - Downloader: api/downloader.md
+      - Organizer: api/organizer.md
+      - Transcription: api/transcription.md
+      - Utils: api/utils.md
 plugins:
   - mkdocstrings:
       default_handler: python

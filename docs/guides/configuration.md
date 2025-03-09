@@ -25,6 +25,38 @@ global:
   audio_format: "mp3"
   ffmpeg_presentation_merge: true
 
+claude:
+  models:
+    claude-3-7-sonnet-latest:
+      name: "Claude 3.7 Sonnet"
+      context_window: 200000
+      max_output_tokens: 8192
+      description: "Latest Claude model with hybrid reasoning capabilities"
+      is_default: true
+    claude-3-5-sonnet-latest:
+      name: "Claude 3.5 Sonnet"
+      context_window: 200000
+      max_output_tokens: 8192
+      description: "Enhanced reasoning and coding skills"
+      is_default: false
+
+  prompts:
+    defaults:
+      summarize: |
+        Please provide a concise summary of the following content.
+      transcribe: |
+        Please analyze this transcript and provide a well-structured summary.
+      analyze: |
+        Please perform a detailed analysis of the following content.
+      comprehensive: |
+        ===Comprehensive Content Summarizer===
+
+        You are an Expert Content Summarizer with a talent for capturing both key facts and underlying context.
+      course_notes: |
+        ===Course Notes Generator===
+
+        Create detailed course notes from this transcript, organizing key concepts.
+
 courses:
   course-name:
     course_link: "https://example.thinkific.com/courses/take/course-name"
@@ -47,6 +79,30 @@ courses:
 - `audio_quality`: Default audio quality (0-9, where 0 is best)
 - `audio_format`: Default audio format (options: "mp3", "aac", "flac", "ogg")
 - `ffmpeg_presentation_merge`: Whether to merge presentation files
+
+### Claude AI Settings
+
+The `claude` section configures the AI models and prompts used for generating summaries:
+
+#### Models
+
+- `name`: Display name for the model
+- `context_window`: Maximum context window size in tokens
+- `max_output_tokens`: Maximum output tokens for the model
+- `description`: Description of the model's capabilities
+- `is_default`: Whether this is the default model (only one model should be marked as default)
+
+#### Prompts
+
+The `prompts.defaults` section defines the prompt templates for different summary types:
+
+- `summarize`: Basic summary focusing on key points
+- `transcribe`: Summary specifically designed for transcripts
+- `analyze`: Detailed analysis with themes, arguments, and insights
+- `comprehensive`: In-depth summary capturing key facts, context, and nuances
+- `course_notes`: Structured course notes with key concepts and actionable takeaways
+
+You can customize these prompts or add your own to create different summary styles.
 
 ### Course Settings
 

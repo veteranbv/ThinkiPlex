@@ -51,9 +51,6 @@ if(in_array("--json", $argv) && isset($argv[2])) {
 		die("Error: Failed to fetch course data. Please check your authentication credentials.".PHP_EOL);
 	}
 
-	// Save course data
-	file_put_contents($course_id.".json", $response);
-
 	// Parse response
 	$data = json_decode($response, true);
 	if ($data === null) {
@@ -66,7 +63,17 @@ if(in_array("--json", $argv) && isset($argv[2])) {
 
 	$contentsdata = $data["contents"];
 	echo "Fetching Course Contents... Please Wait...".PHP_EOL;
+
+	// Initialize course directory
 	init_course($data);
+
+	// Save course data in the course directory
+	$course_name = filter_filename($data["course"]["name"]);
+	// Ensure the course directory exists
+	if (!file_exists($course_name)) {
+		mkdir($course_name, 0777, true);
+	}
+	file_put_contents($course_name."/".$course_id.".json", $response);
 
 	// Display download summary
 	display_download_summary();

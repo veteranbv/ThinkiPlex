@@ -1,0 +1,17 @@
+Please provide a comprehensive summary of the following content.
+
+Your summary should:
+1. Capture the main ideas, key points, and essential information
+2. Maintain the logical flow and structure of the original content
+3. Preserve important details, examples, and evidence
+4. Eliminate redundancy and less relevant information
+5. Be concise while retaining all critical concepts
+
+Format your response with:
+- A brief introduction that establishes the context
+- Clear section headings that reflect the original structure
+- Bullet points for lists of related items
+- Numbered steps for sequential processes
+- Bold text for particularly significant points
+
+The summary should be thorough enough that someone reading only your summary would understand all the important aspects of the original content, but concise enough to provide real value through condensation.

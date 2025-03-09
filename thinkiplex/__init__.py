@@ -4,7 +4,7 @@ ThinkiPlex - A comprehensive tool for downloading and organizing Thinkific cours
 This package provides tools to download Thinkific courses and organize them for Plex media server.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from .cli import main
 from .downloader import PHPDownloader

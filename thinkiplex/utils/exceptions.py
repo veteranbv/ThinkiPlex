@@ -62,3 +62,13 @@ class NetworkError(ThinkiPlexError):
 class AuthenticationError(NetworkError):
     """Raised when there's an authentication issue."""
     pass
+
+
+class TranscriptionError(ThinkiPlexError):
+    """Raised when there's an issue with audio transcription."""
+    pass
+
+
+class AIProcessingError(ThinkiPlexError):
+    """Raised when there's an issue with AI processing."""
+    pass
