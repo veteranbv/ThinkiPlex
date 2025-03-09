@@ -7,7 +7,7 @@ name = "thinkiplex"
 description = "Download and organize Thinkific courses for Plex"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
+license = { text = "MIT" }
 dynamic = ["version"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -32,6 +32,11 @@ dependencies = [
     "tiktoken>=0.7.0",
     "python-slugify>=8.0.4",
     "python-dotenv>=1.0.1",
+    "PyPDF2>=3.0.0",
+    "markdown>=3.4.0",
+    "weasyprint>=59.0",
+    "beautifulsoup4>=4.12.0",
+    "html2text>=2020.1.16",
 ]
 
 [project.optional-dependencies]
@@ -53,7 +58,7 @@ thinkiplex = "thinkiplex.main:main"
 packages = ["thinkiplex"]
 
 [tool.setuptools.dynamic]
-version = {attr = "thinkiplex.__version__"}
+version = { attr = "thinkiplex.__version__" }
 
 [tool.black]
 line-length = 100

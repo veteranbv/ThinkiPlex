@@ -26,6 +26,11 @@ ThinkiPlex is designed to help you get the most out of your online courses:
   - Multiple prompt types for different summary styles (comprehensive, course notes, analysis)
   - Support for latest Claude models (3.7, 3.5)
   - Process specific sessions or entire courses
+- **PDF Generation**: Combine all class resources into a single well-formatted PDF
+  - Includes AI summaries, text content, HTML, and PDF resources
+  - Excludes video, audio, and transcripts
+  - Creates a table of contents and section headers
+  - Saves to the course downloads folder for easy access
 - **Incremental Updates**: Support for checking and downloading only new course content
 - **Docker Support**: Run the PHP downloader in a Docker container for easier setup
 - **Interactive CLI**: User-friendly command-line interface with interactive prompts
@@ -346,6 +351,9 @@ python -m thinkiplex --extract-audio --course course-name
 
 # Consolidate the data structure
 python -m thinkiplex --cleanup
+
+# Generate a PDF of course resources
+python -m thinkiplex --generate-pdf --course course-name
 ```
 
 ### Command-line Options
@@ -370,6 +378,7 @@ python -m thinkiplex --cleanup
 | `--claude-model MODEL` | Claude model to use for AI summaries (default: uses the model marked as default in config) |
 | `--no-diarization` | Disable speaker diarization in transcriptions |
 | `--prompt-type TYPE` | Prompt type to use for AI summaries (options: summarize, transcribe, analyze, comprehensive, course_notes) |
+| `--generate-pdf` | Generate a PDF of course resources (excluding video, audio, and transcripts) |
 | `--verbose` | Enable verbose logging |
 | `--log-file FILE` | Path to the log file |
 

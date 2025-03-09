@@ -10,9 +10,13 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Optional, cast
+from typing import List, Optional, cast
 
+import inquirer
 from dotenv import load_dotenv
+
+from .pdf import PDFGenerator
+from .utils.config import Config
 
 # Load environment variables from .env file
 config_dir = Path(__file__).resolve().parent.parent / "config"
@@ -67,6 +71,10 @@ Examples:
 
     parser.add_argument(
         "--list-courses", action="store_true", help="List available courses and exit"
+    )
+
+    parser.add_argument(
+        "--generate-pdf", action="store_true", help="Generate a PDF of course resources"
     )
 
     # Downloader options
@@ -182,6 +190,81 @@ def ensure_directories() -> None:
         os.makedirs(d, exist_ok=True)
 
 
+def generate_pdf(course_id: str) -> bool:
+    """Generate a PDF of course resources.
+
+    Args:
+        course_id: ID of the course
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        logger.info(f"Generating PDF for course: {course_id}")
+
+        # Initialize the PDF generator
+        pdf_generator = PDFGenerator()
+
+        # Generate the PDF
+        output_file = pdf_generator.generate_course_pdf(course_id)
+
+        logger.info(f"PDF generation complete: {output_file}")
+        print(f"PDF generated successfully: {output_file}")
+        return True
+    except Exception as e:
+        logger.error(f"Error generating PDF: {e}")
+        print(f"Error generating PDF: {e}")
+        return False
+
+
+def interactive_menu_pdf_generation() -> bool:
+    """Interactive menu for PDF generation.
+
+    Returns:
+        True if successful, False otherwise
+    """
+    # Get list of available courses
+    courses = get_available_courses()
+
+    if not courses:
+        print("No courses found. Please configure a course first.")
+        return False
+
+    # Ask user to select a course
+    questions = [
+        inquirer.List(
+            "course",
+            message="Select a course to generate PDF for",
+            choices=courses,
+        ),
+    ]
+
+    answers = inquirer.prompt(questions)
+
+    if not answers:
+        return False
+
+    course_id = answers["course"]
+
+    # Generate PDF
+    return generate_pdf(course_id)
+
+
+def get_available_courses() -> List[str]:
+    """Get a list of available courses.
+
+    Returns:
+        List of course IDs
+    """
+    try:
+        config = Config()
+        courses = list(config.config.get("courses", {}).keys())
+        return courses
+    except Exception as e:
+        logger.error(f"Error getting available courses: {e}")
+        return []
+
+
 def main() -> int:
     """Main entry point for the CLI."""
     # Create the argument parser
@@ -192,6 +275,7 @@ def main() -> int:
         args = argparse.Namespace(
             course=None,
             list_courses=False,
+            generate_pdf=False,
             run_downloader=False,
             skip_downloader=False,
             run_php=None,
@@ -378,6 +462,17 @@ def main() -> int:
         list_courses()
         return 0
 
+    # Handle generate-pdf option
+    if args.generate_pdf:
+        course_id = args.course
+
+        if not course_id:
+            # If no course specified, show interactive menu
+            return 0 if interactive_menu_pdf_generation() else 1
+
+        # Generate PDF for the specified course
+        return 0 if generate_pdf(course_id) else 1
+
     # Interactive mode - show main menu
     if not args.course:
         print("ThinkiPlex")
@@ -392,9 +487,10 @@ def main() -> int:
         print("7. Update authentication data")
         print("8. Extract audio from videos")
         print("9. Generate transcriptions and AI summaries")
-        print("10. Exit")
+        print("10. Generate PDF of course resources")
+        print("11. Exit")
 
-        choice = input("\nEnter your choice (1-10): ")
+        choice = input("\nEnter your choice (1-11): ")
 
         if choice == "1":
             # Run the configuration wizard
@@ -560,9 +656,12 @@ def main() -> int:
             # Generate transcriptions and AI summaries
             interactive_menu_transcription()
         elif choice == "10":
+            # Generate PDF of course resources
+            return 0 if interactive_menu_pdf_generation() else 1
+        elif choice == "11":
             return 0
         else:
-            print("Invalid choice. Please enter a number between 1 and 10.")
+            print("Invalid choice. Please enter a number between 1 and 11.")
             return 1
     else:
         course_name = args.course

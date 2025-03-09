@@ -1,1 +1,6 @@
 -e .
+PyPDF2>=3.0.0
+markdown>=3.4.0
+weasyprint>=59.0
+beautifulsoup4>=4.12.0
+html2text>=2020.1.16
