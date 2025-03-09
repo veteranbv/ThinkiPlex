@@ -182,7 +182,7 @@ python -m thinkiplex --cleanup
 
 ## Project Structure
 
-```
+```bash
 thinkiplex/              # Main package
 ├── __init__.py          # Package initialization
 ├── __main__.py          # Entry point for running as a module

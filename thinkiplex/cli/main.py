@@ -29,7 +29,22 @@ logger = logging.getLogger(__name__)
 def create_parser() -> argparse.ArgumentParser:
     """Create the command-line argument parser."""
     parser = argparse.ArgumentParser(
-        description="ThinkiPlex: Download and organize Thinkific courses for Plex"
+        description="ThinkiPlex: Download and organize Thinkific courses for Plex",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Run the setup wizard to configure a new course
+  thinkiplex --setup
+        
+  # List configured courses
+  thinkiplex --list-courses
+  
+  # Process a specific course
+  thinkiplex --course <course-name>
+  
+  # Update authentication data for a course
+  thinkiplex --course <course-name> --update-auth --client-date "..." --cookie-data "..."
+"""
     )
 
     parser.add_argument(
@@ -157,13 +172,13 @@ def main() -> int:
     # If setup flag is set, run the setup wizard
     if args.setup:
         try:
-            from setup_wizard import setup_wizard
+            from thinkiplex.cli.wizard import setup_wizard
 
             setup_wizard()
             return 0
         except ImportError:
             logger.error(
-                "Setup wizard not found. Please run 'python setup_wizard.py' directly."
+                "Setup wizard not found. Please check installation."
             )
             return 1
 

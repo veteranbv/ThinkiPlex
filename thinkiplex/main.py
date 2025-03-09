@@ -25,7 +25,25 @@ logger = logging.getLogger(__name__)
 def create_parser() -> argparse.ArgumentParser:
     """Create the command-line argument parser."""
     parser = argparse.ArgumentParser(
-        description="ThinkiPlex: Download and organize Thinkific courses for Plex"
+        description="ThinkiPlex: Download and organize Thinkific courses for Plex",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Interactive mode (menu-driven)
+  thinkiplex
+        
+  # Run the setup wizard to configure a new course
+  thinkiplex --setup
+        
+  # List configured courses
+  thinkiplex --list-courses
+  
+  # Process a specific course
+  thinkiplex --course <course-name>
+  
+  # Update authentication data for a course
+  thinkiplex --course <course-name> --update-auth --client-date "..." --cookie-data "..."
+"""
     )
 
     # Main options
@@ -133,7 +151,29 @@ def main() -> int:
     """Main entry point for the CLI."""
     # Create the argument parser
     parser = create_parser()
-    args = parser.parse_args()
+    
+    # If no arguments are provided, show interactive menu by setting no course
+    if len(sys.argv) == 1:
+        args = argparse.Namespace(
+            course=None, 
+            list_courses=False,
+            run_downloader=False,
+            skip_downloader=False,
+            run_php=None,
+            run_php_json=None,
+            run_docker=False,
+            update_auth=False,
+            client_date=None,
+            cookie_data=None,
+            cleanup=False,
+            skip_organize=False,
+            extract_audio=False,
+            skip_audio=False,
+            verbose=False,
+            log_file=None
+        )
+    else:
+        args = parser.parse_args()
 
     # Set up logging
     if args.verbose:
@@ -406,12 +446,21 @@ def main() -> int:
             print(f"\nUpdating authentication data for course: {selected_course}")
             print("Leave fields empty to keep current values.")
 
-            client_date = input(
-                f"Client date [{course_config.get('client_date', '')}]: "
-            )
-            cookie_data = input(
-                f"Cookie data [{course_config.get('cookie_data', '')}]: "
-            )
+            current_client_date = course_config.get('client_date', '')
+            current_cookie_data = course_config.get('cookie_data', '')
+            
+            # Only show first/last few characters of current values for better UX
+            display_client_date = current_client_date[:10] + "..." if len(current_client_date) > 10 else current_client_date
+            display_cookie_data = current_cookie_data[:10] + "..." if len(current_cookie_data) > 10 else current_cookie_data
+            
+            print("\nTIP: To get these values:")
+            print("1. Open your course in Chrome/Firefox Developer Tools (F12)")
+            print("2. Go to Network tab and refresh the page")
+            print("3. Find a request to your course page and check Headers")
+            print("4. Look for 'date' and 'cookie' request headers")
+            
+            client_date = input(f"Client date [{display_client_date}]: ")
+            cookie_data = input(f"Cookie data [{display_cookie_data}]: ")
 
             # Update values if provided
             if client_date:

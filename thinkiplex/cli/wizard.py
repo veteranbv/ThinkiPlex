@@ -119,6 +119,14 @@ def setup_wizard():
     print("======================")
     print("This wizard will help you configure ThinkiPlex for your courses.")
     print()
+    print("TIP: To authenticate with Thinkific, follow these steps:")
+    print("1. Open your Thinkific course in Chrome/Firefox and log in")
+    print("2. Press F12 to open Developer Tools and go to the Network tab")
+    print("3. Refresh the page")
+    print("4. Find a request to 'courses/take/your-course-name'")
+    print("5. Look for 'date' in request headers for Client Date value")
+    print("6. Look for 'cookie' in request headers for Cookie Data value")
+    print()
 
     # Ensure directories exist
     ensure_dirs()
@@ -247,14 +255,21 @@ def setup_wizard():
                     "video_quality", config["global"]["video_quality"]
                 ),
             ),
+            inquirer.Confirm(
+                "extract_audio",
+                message="Extract audio from videos:",
+                default=course_config.get(
+                    "extract_audio", config["global"].get("extract_audio", True)
+                ),
+            ),
             inquirer.Text(
                 "client_date",
-                message="Client date (from network request header):",
+                message="Client date (from browser network request 'date' header):",
                 default=course_config.get("client_date", ""),
             ),
             inquirer.Text(
                 "cookie_data",
-                message="Cookie data (from network request header):",
+                message="Cookie data (from browser network request 'cookie' header):",
                 default=course_config.get("cookie_data", ""),
             ),
             inquirer.List(
@@ -297,7 +312,7 @@ def setup_wizard():
         course_questions = [
             inquirer.Text(
                 "course_link",
-                message="Course link:",
+                message="Course link (e.g., https://example.thinkific.com/courses/take/course-name):",
                 validate=validate_course_link,
             ),
             inquirer.Text(
@@ -325,14 +340,19 @@ def setup_wizard():
                 ],
                 default=config["global"]["video_quality"],
             ),
+            inquirer.Confirm(
+                "extract_audio",
+                message="Extract audio from videos:",
+                default=config["global"].get("extract_audio", True),
+            ),
             inquirer.Text(
                 "client_date",
-                message="Client date (from network request header):",
+                message="Client date (from browser network request 'date' header):",
                 default="",
             ),
             inquirer.Text(
                 "cookie_data",
-                message="Cookie data (from network request header):",
+                message="Cookie data (from browser network request 'cookie' header):",
                 default="",
             ),
             inquirer.List(
@@ -352,22 +372,42 @@ def setup_wizard():
 
         course_answers = inquirer.prompt(course_questions)
 
+        # Extract the course name from the URL to use as a key
+        course_name = get_course_name_from_url(course_answers["course_link"])
+        if not course_name:
+            course_name = course_answers["show_name"].lower().replace(" ", "-")
+        
         # Add the course to the config
-        config["courses"][course_answers["show_name"]] = course_answers
+        config["courses"][course_name] = course_answers
+        print(f"\nAdded course with identifier: {course_name}")
+        print("Use this identifier when running commands like:")
+        print(f"  thinkiplex --course {course_name}")
 
     # Save the configuration
     with open("config/thinkiplex.yaml", "w") as f:
         yaml.dump(config, f, default_flow_style=False, sort_keys=False)
 
     print("\nConfiguration saved to config/thinkiplex.yaml")
+    
+    if answers["action"] == "new":
+        course_name = get_course_name_from_url(course_answers["course_link"])
+        if not course_name:
+            course_name = course_answers["show_name"].lower().replace(" ", "-")
+        print(f"\nYou can now process your course with:")
+        print(f"  thinkiplex --course {course_name}")
+    elif answers["action"] == "edit":
+        course_name = edit_answers["course"]
+        print(f"\nYou can now process your updated course with:")
+        print(f"  thinkiplex --course {course_name}")
 
     # Create PHP environment file if needed
     if answers["action"] == "new" or answers["action"] == "edit":
-        selected_course = (
-            course_answers["show_name"]
-            if answers["action"] == "new"
-            else edit_answers["course"]
-        )
+        # Get the appropriate course identifier
+        if answers["action"] == "new":
+            selected_course = course_name  # Use the extracted course name
+        else:
+            selected_course = edit_answers["course"]
+            
         course_config = config["courses"][selected_course]
 
         # Create PHP environment file

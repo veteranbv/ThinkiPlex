@@ -9,6 +9,13 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import yaml
+from pydantic import ValidationError as PydanticValidationError
+
+from .exceptions import ConfigError, ValidationError
+from .schemas import ThinkiPlexConfig
+from .logging import get_logger
+
+logger = get_logger()
 
 
 class Config:
@@ -19,21 +26,46 @@ class Config:
 
         Args:
             config_file: Path to the configuration file
+            
+        Raises:
+            ConfigError: If the configuration file cannot be loaded
+            ValidationError: If the configuration is invalid
         """
         self.config_file = config_file
         self.config = self._load_config()
+        self.validate_config()
 
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from YAML file or create default if not exists.
 
         Returns:
             Dictionary with loaded configuration
+            
+        Raises:
+            ConfigError: If the configuration file cannot be loaded
         """
         if not os.path.exists(self.config_file):
             self._create_default_config()
 
-        with open(self.config_file, "r") as f:
-            return yaml.safe_load(f)
+        try:
+            with open(self.config_file, "r") as f:
+                return yaml.safe_load(f)
+        except (yaml.YAMLError, IOError) as e:
+            logger.error(f"Failed to load configuration: {e}")
+            raise ConfigError(f"Failed to load configuration: {e}") from e
+            
+    def validate_config(self) -> None:
+        """Validate the configuration against the schema.
+        
+        Raises:
+            ValidationError: If the configuration is invalid
+        """
+        try:
+            ThinkiPlexConfig(**self.config)
+            logger.debug("Configuration validated successfully")
+        except PydanticValidationError as e:
+            logger.error(f"Invalid configuration: {e}")
+            raise ValidationError(f"Invalid configuration: {e}") from e
 
     def _create_default_config(self) -> None:
         """Create a default configuration file."""
@@ -137,9 +169,21 @@ class Config:
         config[parts[-1]] = value
 
     def save(self) -> None:
-        """Save the configuration to file."""
-        with open(self.config_file, "w") as f:
-            yaml.dump(self.config, f, default_flow_style=False)
+        """Save the configuration to file.
+        
+        Raises:
+            ConfigError: If the configuration cannot be saved
+        """
+        try:
+            # Validate before saving
+            self.validate_config()
+            
+            with open(self.config_file, "w") as f:
+                yaml.dump(self.config, f, default_flow_style=False)
+            logger.debug(f"Configuration saved to {self.config_file}")
+        except (yaml.YAMLError, IOError) as e:
+            logger.error(f"Failed to save configuration: {e}")
+            raise ConfigError(f"Failed to save configuration: {e}") from e
 
     def get_path(self, path: str, fallback: Optional[str] = None) -> Path:
         """Get a path configuration value.
