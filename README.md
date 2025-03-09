@@ -139,7 +139,7 @@ ThinkiPlex includes powerful features for transcribing course content and genera
    - Get an Anthropic API key from [https://console.anthropic.com/](https://console.anthropic.com/)
    - Add both keys to your `.env` file:
 
-     ```
+     ```bash
      ASSEMBLYAI_API_KEY=your_assemblyai_key
      ANTHROPIC_API_KEY=your_anthropic_key
      ```
@@ -295,8 +295,11 @@ claude:
       course_notes: |
         ===Course Notes Generator===
 
-        Create detailed course notes from this transcript, organizing key concepts.
+        Create detailed course notes from this transcript, organizing key concepts, examples, and actionable takeaways.
+        Format with clear headings, bullet points, and highlight important terminology.
 ```
+
+> **Note**: The comprehensive prompt is inspired by [Dan Koe's excellent prompt](https://x.com/thedankoe/status/1897996820716175735) shared on X.com. Follow him at [@thedankoe](https://x.com/thedankoe) for more valuable insights.
 
 ### Course Configuration
 
