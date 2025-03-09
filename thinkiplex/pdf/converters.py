@@ -4,15 +4,162 @@ Converters for different file types to PDF.
 This module provides functions to convert various file types to PDF format.
 """
 
+import io
+import os
+import tempfile
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 import markdown
+import PyPDF2
 from weasyprint import HTML
 
 from ..utils.logging import get_logger
 
 logger = get_logger()
+
+
+def normalize_pdf_page_size(
+    pdf_file: Union[str, Path], 
+    output_file: Optional[Union[str, Path]] = None,
+    target_size: Tuple[float, float] = (8.5*72, 11*72),  # Letter size in points
+    preserve_aspect_ratio: bool = True,
+    standard_sizes: bool = True
+) -> Path:
+    """
+    Normalize the page size of a PDF file to make all pages consistent.
+    
+    Args:
+        pdf_file: Path to the PDF file
+        output_file: Path to save the normalized PDF file (optional)
+        target_size: Target page size in points (width, height)
+        preserve_aspect_ratio: Whether to preserve aspect ratio when resizing
+        standard_sizes: Whether to detect and preserve standard paper sizes
+        
+    Returns:
+        Path to the normalized PDF file
+    """
+    pdf_file = Path(pdf_file)
+    
+    if not pdf_file.exists():
+        raise FileNotFoundError(f"PDF file not found: {pdf_file}")
+    
+    # If output file is not specified, use a temporary file
+    if output_file is None:
+        fd, output_file = tempfile.mkstemp(suffix=".pdf")
+        os.close(fd)
+    else:
+        output_file = Path(output_file)
+    
+    # Standard paper sizes in points (width, height)
+    standard_paper_sizes = {
+        # US sizes
+        'letter': (8.5*72, 11*72),        # 8.5 x 11 inches
+        'legal': (8.5*72, 14*72),         # 8.5 x 14 inches
+        'tabloid': (11*72, 17*72),        # 11 x 17 inches
+        # ISO A sizes
+        'a4': (595, 842),                 # 210 x 297 mm
+        'a3': (842, 1190),                # 297 x 420 mm
+        'a5': (420, 595),                 # 148 x 210 mm
+    }
+        
+    try:
+        # Open the input PDF
+        with open(pdf_file, 'rb') as f:
+            reader = PyPDF2.PdfReader(f)
+            writer = PyPDF2.PdfWriter()
+            
+            # Process each page
+            for page in reader.pages:
+                # Get the current page size
+                current_size = (page.mediabox.width, page.mediabox.height)
+                current_width, current_height = current_size
+                
+                # Check if this is a standard paper size (or its rotated version)
+                detected_paper_size = None
+                if standard_sizes:
+                    for paper_name, (std_width, std_height) in standard_paper_sizes.items():
+                        # Check both orientations with some tolerance (1%)
+                        if (abs(current_width - std_width) / std_width <= 0.01 and
+                            abs(current_height - std_height) / std_height <= 0.01):
+                            detected_paper_size = (std_width, std_height)
+                            break
+                        # Check rotated orientation
+                        if (abs(current_width - std_height) / std_height <= 0.01 and
+                            abs(current_height - std_width) / std_width <= 0.01):
+                            detected_paper_size = (std_height, std_width)
+                            break
+                
+                # If it's a standard paper size and it's already the target size
+                target_width, target_height = target_size
+                if detected_paper_size and abs(detected_paper_size[0] - target_width) <= 0.01 * target_width and abs(detected_paper_size[1] - target_height) <= 0.01 * target_height:
+                    # Already the target size, keep as is
+                    writer.add_page(page)
+                    continue
+                
+                # If it's a different standard paper size but we want to preserve it
+                if detected_paper_size and standard_sizes:
+                    # We'll keep this page at its original size
+                    writer.add_page(page)
+                    continue
+
+                # Determine if we need to create a new page
+                # If the page size is close to the target size (within 5%), keep it as is
+                width_diff = abs(current_width - target_width) / target_width
+                height_diff = abs(current_height - target_height) / target_height
+                
+                if width_diff <= 0.05 and height_diff <= 0.05:
+                    # Page size is close enough to target, keep as is
+                    writer.add_page(page)
+                else:
+                    # Create a new page with the target size
+                    new_page = PyPDF2.PageObject.create_blank_page(
+                        width=target_width,
+                        height=target_height
+                    )
+                    
+                    # Scale the content to fit the new page
+                    if preserve_aspect_ratio:
+                        # Calculate scaling factor (smaller of width/height ratios)
+                        scale_x = target_width / current_width
+                        scale_y = target_height / current_height
+                        scale = min(scale_x, scale_y) * 0.95  # 95% to leave a small margin
+                        
+                        # Calculate position to center the content
+                        x_offset = (target_width - current_width * scale) / 2
+                        y_offset = (target_height - current_height * scale) / 2
+                    else:
+                        # Stretch to fill (not preserving aspect ratio)
+                        scale_x = target_width / current_width * 0.95
+                        scale_y = target_height / current_height * 0.95
+                        x_offset = target_width * 0.025
+                        y_offset = target_height * 0.025
+                        
+                        # Use separate scaling for x and y
+                        new_page.merge_page(page)
+                        writer.add_page(new_page)
+                        continue
+                    
+                    # Merge the content with preserved aspect ratio
+                    new_page.merge_transformed_page(
+                        page,
+                        PyPDF2.Transformation().scale(scale).translate(x_offset, y_offset)
+                    )
+                    
+                    writer.add_page(new_page)
+            
+            # Write the output PDF
+            with open(output_file, 'wb') as out_f:
+                writer.write(out_f)
+            
+            logger.info(f"Normalized PDF page size: {output_file}")
+            return Path(output_file)
+            
+    except Exception as e:
+        logger.error(f"Error normalizing PDF page size: {e}")
+        if output_file != pdf_file:
+            # If we were creating a new file and there was an error, just return the original
+            return pdf_file
 
 
 def convert_markdown_to_pdf(
@@ -128,8 +275,26 @@ def convert_markdown_to_pdf(
             @page {{
                 size: letter;
                 margin: 2cm;
+                @top-center {{
+                    content: "{markdown_file.stem}";
+                    font-size: 9pt;
+                    color: #7f8c8d;
+                    font-style: italic;
+                    border-bottom: 1px solid #ecf0f1;
+                    padding-bottom: 0.3em;
+                    margin-bottom: 1em;
+                    font-family: Arial, sans-serif;
+                }}
                 @bottom-center {{
                     content: counter(page);
+                    font-size: 10pt;
+                    font-family: Arial, sans-serif;
+                }}
+                @bottom-right {{
+                    content: "Generated with ThinkiPlex";
+                    font-size: 8pt;
+                    color: #95a5a6;
+                    font-family: Arial, sans-serif;
                 }}
             }}
         </style>
@@ -206,8 +371,26 @@ def convert_html_to_pdf(
             @page {{
                 size: letter;
                 margin: 2cm;
+                @top-center {{
+                    content: "{html_file.stem}";
+                    font-size: 9pt;
+                    color: #7f8c8d;
+                    font-style: italic;
+                    border-bottom: 1px solid #ecf0f1;
+                    padding-bottom: 0.3em;
+                    margin-bottom: 1em;
+                    font-family: Arial, sans-serif;
+                }}
                 @bottom-center {{
                     content: counter(page);
+                    font-size: 10pt;
+                    font-family: Arial, sans-serif;
+                }}
+                @bottom-right {{
+                    content: "Generated with ThinkiPlex";
+                    font-size: 8pt;
+                    color: #95a5a6;
+                    font-family: Arial, sans-serif;
                 }}
             }}
         </style>
@@ -274,8 +457,26 @@ def convert_text_to_pdf(
             @page {{
                 size: letter;
                 margin: 2cm;
+                @top-center {{
+                    content: "{text_file.stem}";
+                    font-size: 9pt;
+                    color: #7f8c8d;
+                    font-style: italic;
+                    border-bottom: 1px solid #ecf0f1;
+                    padding-bottom: 0.3em;
+                    margin-bottom: 1em;
+                    font-family: Arial, sans-serif;
+                }}
                 @bottom-center {{
                     content: counter(page);
+                    font-size: 10pt;
+                    font-family: Arial, sans-serif;
+                }}
+                @bottom-right {{
+                    content: "Generated with ThinkiPlex";
+                    font-size: 8pt;
+                    color: #95a5a6;
+                    font-family: Arial, sans-serif;
                 }}
             }}
         </style>
