@@ -1,0 +1,21 @@
+# Docker compose to run the php application
+version: "3.7"
+
+services:
+  thinkidownloader:
+    image: sumeetweb/thinki-php:latest
+    container_name: ThinkiDownloader
+    volumes:
+      - .:/app
+      - ../../../data/courses/${COURSE_NAME}/downloads:/app/${COURSE_NAME}
+      - ../../../data/courses/${COURSE_NAME}:/app/course_data
+    working_dir: /app
+    command: >
+      sh -c "php thinkidownloader3.php ${COURSE_LINK} && cp *.json /app/course_data/ || true"
+    environment:
+      - COURSE_LINK=${COURSE_LINK}
+      - CLIENT_DATE=${CLIENT_DATE}
+      - COOKIE_DATA=${COOKIE_DATA}
+      - VIDEO_DOWNLOAD_QUALITY=${VIDEO_DOWNLOAD_QUALITY}
+      - COURSE_NAME=${COURSE_NAME}
+      - CHECK_UPDATES_ONLY=${CHECK_UPDATES_ONLY}

@@ -1,0 +1,20 @@
+global:
+  base_dir: "/path/to/thinkiplex"
+  video_quality: "720p"  # Options: Original File, 1080p, 720p, 540p, 360p, 224p
+  extract_audio: true
+  audio_quality: 0  # 0 (best) to 9 (worst)
+  audio_format: "mp3"  # Options: mp3, aac, flac, ogg
+  ffmpeg_presentation_merge: true  # Whether to merge audio and video files of presentations
+
+courses:
+  course-name:
+    course_link: "https://example.thinkific.com/courses/take/course-name"
+    show_name: "Course Name"  # Name to use in Plex
+    season: "01"  # Season number for Plex
+    video_quality: "720p"  # Override global setting
+    extract_audio: true  # Override global setting
+    audio_quality: 0  # Override global setting
+    audio_format: "mp3"  # Override global setting
+    client_date: ""  # Date header from network request (see README for instructions)
+    cookie_data: ""  # Cookie data from network request (see README for instructions)
+    video_download_quality: "720p"  # Options: Original File, 1080p, 720p, 540p, 360p, 224p
