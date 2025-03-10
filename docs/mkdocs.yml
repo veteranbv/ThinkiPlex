@@ -23,12 +23,14 @@ nav:
       - Configuration: guides/configuration.md
       - Authentication: guides/authentication.md
       - Transcription & AI: guides/transcription.md
+      - PDF Generation: guides/pdf-generation.md
       - Development: guides/development.md
   - API Reference:
       - CLI: api/cli.md
       - Configuration: api/config.md
       - Downloader: api/downloader.md
       - Organizer: api/organizer.md
+      - PDF Generation: api/pdf.md
       - Transcription: api/transcription.md
       - Utils: api/utils.md
 plugins:

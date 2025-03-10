@@ -61,10 +61,14 @@ venv.bak/
 .factorypath
 
 # Project specific data files
-data/courses/*
+data/*
+# Explicitly ignore all course data
+data/courses/**/*
 data/courses/*/downloads/
 data/courses/*/plex/
 data/courses/*/audiobooks/
+# Ignore generated PDFs
+data/courses/**/*.pdf
 *.mp4
 *.mp3
 *.mkv
