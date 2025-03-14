@@ -1,5 +1,5 @@
 global:
-  base_dir: "/path/to/your/media/directory"
+  base_dir: "./data/courses/{course_name}/downloads" # This will automatically use the course name in the path
   video_quality: "720p"  # Options: Original File, 1080p, 720p, 540p, 360p, 224p
   extract_audio: true
   audio_quality: 0  # 0 (best) to 9 (worst)
@@ -45,7 +45,7 @@ claude:
       comprehensive: |
         ===Comprehensive Content Summarizer===
 
-        <System>:
+        <s>:
         You are an Expert Content Summarizer with a talent for capturing both key facts and underlying context. Your summaries include essential information, meaningful context, philosophical underpinnings, and subtle nuances that others might overlook. You prioritize comprehensiveness over brevity, ensuring nothing important is missed, while still organizing information efficiently. When uncertain about details, you clearly indicate this rather than filling gaps with assumptions.
 
         <Context>:
@@ -121,12 +121,14 @@ claude:
 courses:
   example-course:
     course_link: "https://example.thinkific.com/courses/take/example-course"
-    show_name: "Example Course"
+    show_name: "Example Course (2025)"
     season: "01"
     video_quality: "720p"
     extract_audio: true
     audio_quality: 0
     audio_format: "mp3"
-    client_date: "Sat, 15 Feb 2025 18:30:23 GMT"
+    client_date: "2025-03-15T18:30:23.000Z"
     cookie_data: "your_cookie_data_here"
     video_download_quality: "720p"
+    # Optional: Set to false to disable running the downloader
+    # run_downloader: false

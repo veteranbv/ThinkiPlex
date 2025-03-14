@@ -1,4 +1,4 @@
-# Docker compose to run the php application
+# Docker compose to run the php application for selective download
 version: "3"
 
 services:
@@ -7,15 +7,18 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ThinkiDownloader
-    working_dir: /app
-    volumes:
-      - .:/app
-      - ../../../data/courses/${COURSE_NAME}:/app/${COURSE_NAME}
-    command: >
-      sh -c "php thinkidownloader3.php --json ${COURSE_DATA_FILE} && mkdir -p /app/${COURSE_NAME} && cp ${COURSE_NAME}/*.json /app/${COURSE_NAME}/ || true"
+    working_dir: ${TARGET_DIR:-/app/data}
     environment:
-      - COURSE_DATA_FILE=${COURSE_DATA_FILE}
+      - COURSE_LINK=${COURSE_LINK}
       - CLIENT_DATE=${CLIENT_DATE}
       - COOKIE_DATA=${COOKIE_DATA}
       - VIDEO_DOWNLOAD_QUALITY=${VIDEO_DOWNLOAD_QUALITY}
       - COURSE_NAME=${COURSE_NAME}
+      - CHECK_UPDATES_ONLY=${CHECK_UPDATES_ONLY}
+      - TARGET_DIR=${TARGET_DIR:-/app/data}
+    volumes:
+      - .:/app/scripts
+      - ${TARGET_DIR:-/app/data}:${TARGET_DIR:-/app/data}
+      - ${JSON_FILE:-/app/course.json}:/app/scripts/course.json
+    command: >
+      sh -c "php /app/scripts/thinkidownloader3.php --json /app/scripts/course.json"

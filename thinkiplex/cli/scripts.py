@@ -7,7 +7,6 @@ This module provides functions that replace the shell scripts in the root direct
 import json
 import logging
 import os
-import shutil
 import subprocess
 from pathlib import Path
 from typing import List, Optional
@@ -196,6 +195,7 @@ def run_php_downloader_docker(
         env["VIDEO_DOWNLOAD_QUALITY"] = video_quality
         env["CHECK_UPDATES_ONLY"] = str(check_updates_only).lower()
         env["COURSE_NAME"] = course_name
+        env["TARGET_DIR"] = str(course_data_dir)
 
         # Run docker compose with environment variables
         cmd = ["docker", "compose", "-f", "compose.yaml", "up"]
@@ -205,6 +205,7 @@ def run_php_downloader_docker(
         logger.info(f"Course link: {course_link}")
         logger.info(f"Course name: {course_name}")
         logger.info(f"Data directory: {course_data_dir}")
+        logger.info(f"Target directory: {course_data_dir}")
 
         subprocess.run(cmd, check=True, env=env)
 
@@ -290,22 +291,18 @@ def run_php_downloader_docker_selective(
     os.makedirs(course_data_dir, exist_ok=True)
     logger.info(f"Ensuring course data directory exists: {course_data_dir}")
 
-    # Copy the JSON file to the PHP directory
-    json_dest = php_dir / json_path.name
-    shutil.copy2(json_path, json_dest)
-    logger.info(f"Copied JSON file to: {json_dest}")
-
     # Change to the PHP directory
     os.chdir(php_dir)
 
     try:
         # Set environment variables for Docker
         env = os.environ.copy()
-        env["COURSE_DATA_FILE"] = json_path.name
         env["CLIENT_DATE"] = client_date
         env["COOKIE_DATA"] = cookie_data
         env["VIDEO_DOWNLOAD_QUALITY"] = video_quality
         env["COURSE_NAME"] = course_name
+        env["TARGET_DIR"] = str(course_data_dir)
+        env["JSON_FILE"] = str(json_path.absolute())
 
         # Run docker compose with environment variables
         cmd = ["docker", "compose", "-f", "compose.selective.yaml", "up"]
@@ -315,6 +312,7 @@ def run_php_downloader_docker_selective(
         logger.info(f"JSON file: {json_path.name}")
         logger.info(f"Course name: {course_name}")
         logger.info(f"Data directory: {course_data_dir}")
+        logger.info(f"Target directory: {course_data_dir}")
 
         subprocess.run(cmd, check=True, env=env)
 
@@ -327,11 +325,6 @@ def run_php_downloader_docker_selective(
         logger.error(f"Unexpected error running Docker for selective download: {e}")
         return False
     finally:
-        # Clean up the copied JSON file
-        if json_dest.exists():
-            json_dest.unlink()
-            logger.info(f"Removed temporary JSON file: {json_dest}")
-
         # Change back to the base directory
         os.chdir(base_dir)
 

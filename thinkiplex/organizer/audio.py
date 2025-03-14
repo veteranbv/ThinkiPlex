@@ -12,6 +12,9 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from thinkiplex.downloader.php_wrapper import PHPDownloader
+from thinkiplex.utils import Config
+
 logger = logging.getLogger(__name__)
 
 
@@ -264,7 +267,9 @@ def extract_audio(
 
         # Try to determine if this is a Saturday Live Call or Heart Sync session
         if "saturday" in dir_name.lower() or "live call" in dir_name.lower():
-            description = f"Saturday Live Call session focusing on {title}. Part of the {show_name} course."
+            description = (
+                f"Saturday Live Call session focusing on {title}. Part of the {show_name} course."
+            )
         elif "heart sync" in dir_name.lower():
             heart_sync_num = re.search(r"heart-sync-(\d+)", dir_name.lower())
             if heart_sync_num:
@@ -352,9 +357,8 @@ def extract_course_audio(
     # Get course data to extract chapter titles
     course_data = {}
     try:
-        from thinkiplex.downloader.php_wrapper import PHPDownloader
-
-        downloader = PHPDownloader(base_dir)
+        config = Config(str(base_dir / "config" / "thinkiplex.yaml"))
+        downloader = PHPDownloader(base_dir, config=config)
         course_data = downloader.get_course_data(course_name)
     except Exception as e:
         logger.warning(f"Failed to get course data: {e}")
@@ -430,9 +434,7 @@ def extract_course_audio(
 
         # If we have the same number of audio files as video directories, we can skip
         if len(existing_audio_files) >= video_dir_count:
-            logger.info(
-                f"Audio files already exist in {output_dir}. Skipping audio extraction."
-            )
+            logger.info(f"Audio files already exist in {output_dir}. Skipping audio extraction.")
 
             # Still process videos to ensure they're in the right place
             video_output_dir = (
@@ -563,13 +565,9 @@ def process_videos_for_plex(
             video_dirs.append((dir_num, dir_name))
 
     # Check if we already have the expected number of video files
-    existing_video_files = list(output_dir.glob("*.mp4")) + list(
-        output_dir.glob("*.mkv")
-    )
+    existing_video_files = list(output_dir.glob("*.mp4")) + list(output_dir.glob("*.mkv"))
     if len(existing_video_files) >= len(video_dirs):
-        logger.info(
-            f"All video files already exist in {output_dir}. Skipping video processing."
-        )
+        logger.info(f"All video files already exist in {output_dir}. Skipping video processing.")
         return [str(f) for f in existing_video_files]
 
     # Process each directory with video files, assigning sequential episode numbers starting from 01
@@ -603,7 +601,9 @@ def process_videos_for_plex(
 
         # Try to determine if this is a Saturday Live Call or Heart Sync session
         if "saturday" in dir_name.lower() or "live call" in dir_name.lower():
-            description = f"Saturday Live Call session focusing on {title}. Part of the {show_name} course."
+            description = (
+                f"Saturday Live Call session focusing on {title}. Part of the {show_name} course."
+            )
         elif "heart sync" in dir_name.lower():
             heart_sync_num = re.search(r"heart-sync-(\d+)", dir_name.lower())
             if heart_sync_num:

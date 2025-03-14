@@ -655,6 +655,7 @@ def main() -> int:
         elif choice == "9":
             # Generate transcriptions and AI summaries
             interactive_menu_transcription()
+            return 0
         elif choice == "10":
             # Generate PDF of course resources
             return 0 if interactive_menu_pdf_generation() else 1

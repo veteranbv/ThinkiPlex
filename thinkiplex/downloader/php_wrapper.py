@@ -10,7 +10,9 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
+
+from thinkiplex.utils import Config
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +20,16 @@ logger = logging.getLogger(__name__)
 class PHPDownloader:
     """Python wrapper for the PHP downloader."""
 
-    def __init__(self, base_dir: Path):
+    def __init__(self, base_dir: Path, config: Optional[Config] = None):
         """
         Initialize the PHP downloader wrapper.
 
         Args:
             base_dir: Base directory of the project
+            config: Configuration object (optional)
         """
         self.base_dir = base_dir
+        self.config = config
         self.php_script = (
             self.base_dir / "thinkiplex" / "downloader" / "php" / "thinkidownloader3.php"
         )
@@ -73,6 +77,36 @@ class PHPDownloader:
 
         # Extract course folder name from the URL
         course_folder = course_link.split("/")[-1]
+
+        # Check if we have an existing tracking file in the downloads directory
+        # and copy it to the PHP directory if it exists
+        downloads_dir = Path(self.base_dir) / "data" / "courses" / course_folder / "downloads"
+        if self.config and "global" in self.config.config:
+            base_dir_template = self.config.config["global"].get("base_dir")
+            if base_dir_template:
+                downloads_dir = Path(self.base_dir) / base_dir_template.format(
+                    course_name=course_folder
+                )
+
+        existing_tracking_file = downloads_dir / ".download_tracking"
+        php_tracking_file = self.php_script.parent / course_folder / ".download_tracking"
+
+        # Create PHP course directory if it doesn't exist yet
+        php_course_dir = self.php_script.parent / course_folder
+        if not php_course_dir.exists():
+            os.makedirs(php_course_dir, exist_ok=True)
+
+        # Copy tracking file if it exists
+        if existing_tracking_file.exists() and existing_tracking_file.is_file():
+            logger.info(
+                "Found existing tracking file. Copying to PHP directory to resume download."
+            )
+            try:
+                # Make sure the directory exists
+                os.makedirs(php_course_dir, exist_ok=True)
+                shutil.copy2(existing_tracking_file, php_tracking_file)
+            except Exception as e:
+                logger.warning(f"Failed to copy existing tracking file: {e}")
 
         # Set up environment file
         env_file = self.base_dir / "config" / "php_downloader.env"
@@ -176,74 +210,55 @@ VIDEO_DOWNLOAD_QUALITY="{video_quality}"
             logger.error(f"Error reading JSON file: {e}")
             return False
 
-        # Create the course directory in the PHP directory
-        php_dir = self.php_script.parent
-        course_dir = php_dir / course_folder
-        os.makedirs(course_dir, exist_ok=True)
+        # Determine the target directory for the course
+        target_dir = Path(self.base_dir) / "data" / "courses" / course_folder / "downloads"
 
-        # Copy the JSON file to the course directory in the PHP directory
-        php_json_file = course_dir / json_file.name
-        shutil.copy2(json_file, php_json_file)
+        # If we have a config object, use its base_dir setting
+        if self.config and "global" in self.config.config:
+            base_dir_template = self.config.config["global"].get("base_dir")
+            if base_dir_template:
+                target_dir = Path(self.base_dir) / base_dir_template.format(
+                    course_name=course_folder
+                )
 
-        # Set up environment file
-        env_file = self.base_dir / "config" / "php_downloader.env"
-        php_env_file = self.php_script.parent / ".env"
+        # Create the target directory if it doesn't exist
+        os.makedirs(target_dir, exist_ok=True)
 
-        # Create a new environment file with the provided parameters
-        try:
-            env_content = f"""# For downloading all content, use the course link.
-COURSE_LINK=""
+        # Check if we have an existing tracking file in the downloads directory
+        existing_tracking_file = target_dir / ".download_tracking"
 
-# For selective content downloads, use the JSON file created from Thinki Parser.
-# Copy the file to Thinki Downloader root folder (where thinkidownloader3.php is there).
-# Specify the file name below. Ex. COURSE_DATA_FILE="modified-course.json"
-COURSE_DATA_FILE="{json_file.name}"
-
-CLIENT_DATE="{client_date}"
-COOKIE_DATA="{cookie_data}"
-
-# Quality Available: "Original File", "1080p", "720p", "540p", "360p", "224p"
-VIDEO_DOWNLOAD_QUALITY="{video_quality}"
-"""
-            with open(php_env_file, "w") as dest:
-                dest.write(env_content)
-        except Exception as e:
-            logger.error(f"Error creating environment file: {e}")
-            return False
+        # Set up environment variables
+        env = os.environ.copy()
+        env["COURSE_LINK"] = ""  # Not used for selective download
+        env["CLIENT_DATE"] = client_date
+        env["COOKIE_DATA"] = cookie_data
+        env["VIDEO_DOWNLOAD_QUALITY"] = video_quality
+        env["CHECK_UPDATES_ONLY"] = "false"
+        env["COURSE_NAME"] = course_folder
+        env["TARGET_DIR"] = str(target_dir)
+        env["JSON_FILE"] = str(json_file.absolute())
 
         # Change to the PHP script directory
+        prev_dir = os.getcwd()
         os.chdir(self.php_script.parent)
 
-        # Run the PHP script
         try:
-            subprocess.run(["php", str(self.php_script), "--json", json_file.name], check=True)
+            # Run docker compose for selective download
+            cmd = ["docker", "compose", "-f", "compose.selective.yaml", "up"]
+            result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+
+            if result.returncode != 0:
+                logger.error(f"Error running Docker Compose: {result.stderr}")
+                return False
+
             logger.info("PHP downloader completed successfully")
-
-            # Move the downloaded course to the data/courses directory
-            self._move_downloaded_course(course_folder)
-
-            # Remove the old tracking file from the PHP directory if it exists
-            old_tracking_file = self.php_script.parent / ".download_tracking"
-            if old_tracking_file.exists():
-                try:
-                    os.remove(old_tracking_file)
-                    logger.info("Removed old tracking file from PHP directory")
-                except Exception as e:
-                    logger.warning(f"Failed to remove old tracking file: {e}")
-
             return True
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             logger.error(f"Error running PHP downloader: {e}")
             return False
         finally:
-            # Change back to the base directory
-            os.chdir(self.base_dir)
-            # Clean up the copied JSON file if it exists
-            if php_json_file.exists() and php_json_file.is_file():
-                try:
-                    php_json_file.unlink()
-                except Exception as e:
-                    logger.warning(f"Failed to remove temporary JSON file: {e}")
+            # Change back to the previous directory
+            os.chdir(prev_dir)
 
     def _move_downloaded_course(self, course_folder: str) -> None:
         """
@@ -254,36 +269,60 @@ VIDEO_DOWNLOAD_QUALITY="{video_quality}"
         """
         # Set up paths
         php_dir = self.php_script.parent
-        course_dir = self.base_dir / "data" / "courses" / course_folder
-        downloads_dir = course_dir / "downloads"
+        downloads_dir = Path(self.base_dir) / "data" / "courses" / course_folder / "downloads"
 
-        # Create the course directory if it doesn't exist
-        os.makedirs(course_dir, exist_ok=True)
+        # If we have a config object, use its base_dir setting
+        if self.config and "global" in self.config.config:
+            base_dir_template = self.config.config["global"].get("base_dir")
+            if base_dir_template:
+                downloads_dir = Path(self.base_dir) / base_dir_template.format(
+                    course_name=course_folder
+                )
+
+        # Create the downloads directory if it doesn't exist
         os.makedirs(downloads_dir, exist_ok=True)
 
-        # Check if the course was downloaded
+        # Check if the course was downloaded to the PHP directory
         downloaded_dir = php_dir / course_folder
         if downloaded_dir.exists():
-            logger.info(f"Moving downloaded course to: {downloads_dir}")
+            logger.info(f"Moving downloaded course from PHP directory to: {downloads_dir}")
 
             # Copy the course files
             for item in downloaded_dir.iterdir():
                 if item.is_dir():
                     # Copy directory
                     shutil.copytree(item, downloads_dir / item.name, dirs_exist_ok=True)
+                elif item.name == ".download_tracking":
+                    # Special handling for tracking file - merge with existing if available
+                    dest_tracking_file = downloads_dir / item.name
+                    if dest_tracking_file.exists():
+                        try:
+                            # Load existing tracking data
+                            with open(dest_tracking_file, "r") as f:
+                                existing_tracking = json.load(f)
+
+                            # Load new tracking data
+                            with open(item, "r") as f:
+                                new_tracking = json.load(f)
+
+                            # Merge tracking data (new data overwrites existing)
+                            existing_tracking.update(new_tracking)
+
+                            # Write back merged tracking data
+                            with open(dest_tracking_file, "w") as f:
+                                json.dump(existing_tracking, f, indent=4)
+
+                            logger.info("Updated tracking file with new download information")
+                        except Exception as e:
+                            logger.warning(f"Failed to merge tracking files: {e}")
+                            # If merge fails, just copy the new file
+                            shutil.copy2(item, dest_tracking_file)
+                    else:
+                        # No existing tracking file, just copy it
+                        shutil.copy2(item, dest_tracking_file)
                 else:
                     # Copy file
                     shutil.copy2(item, downloads_dir / item.name)
-
-            # Copy the .download_tracking file if it exists
-            tracking_file = downloaded_dir / ".download_tracking"
-            if tracking_file.exists():
-                shutil.copy2(tracking_file, downloads_dir / tracking_file.name)
-
-            # Copy the JSON file if it exists (now it should be in the course directory)
-            json_files = list(downloaded_dir.glob("*.json"))
-            for json_file in json_files:
-                shutil.copy2(json_file, course_dir / json_file.name)
 
             # Clean up the downloaded directory after copying
             try:
@@ -292,7 +331,13 @@ VIDEO_DOWNLOAD_QUALITY="{video_quality}"
             except Exception as e:
                 logger.warning(f"Failed to remove temporary course directory: {e}")
         else:
-            logger.warning(f"Downloaded course directory not found: {downloaded_dir}")
+            # Check if the course was downloaded directly to the target directory
+            if any(downloads_dir.iterdir()):
+                logger.info(
+                    f"Course was downloaded directly to the target directory: {downloads_dir}"
+                )
+            else:
+                logger.warning("No course files found in either PHP directory or target directory")
 
     def get_course_data(self, course_folder: str) -> Dict[str, Any]:
         """
@@ -387,6 +432,14 @@ VIDEO_DOWNLOAD_QUALITY="{video_quality}"
         downloads_dir = course_dir / "downloads"
         json_file = course_dir / f"{course_folder}.json"
 
+        # If we have a config object, use its base_dir setting
+        if self.config and "global" in self.config.config:
+            base_dir_template = self.config.config["global"].get("base_dir")
+            if base_dir_template:
+                downloads_dir = Path(self.base_dir) / base_dir_template.format(
+                    course_name=course_folder
+                )
+
         # Check if the course directory exists
         if not course_dir.exists():
             logger.error(f"Course directory not found: {course_dir}")
@@ -401,6 +454,21 @@ VIDEO_DOWNLOAD_QUALITY="{video_quality}"
         php_dir = self.php_script.parent
         php_course_dir = php_dir / course_folder
         os.makedirs(php_course_dir, exist_ok=True)
+
+        # Check if we have an existing tracking file in the downloads directory
+        # and copy it to the PHP directory if it exists
+        existing_tracking_file = downloads_dir / ".download_tracking"
+        php_tracking_file = php_course_dir / ".download_tracking"
+
+        # Copy tracking file if it exists
+        if existing_tracking_file.exists() and existing_tracking_file.is_file():
+            logger.info(
+                "Found existing tracking file. Copying to PHP directory to resume download."
+            )
+            try:
+                shutil.copy2(existing_tracking_file, php_tracking_file)
+            except Exception as e:
+                logger.warning(f"Failed to copy existing tracking file: {e}")
 
         # Copy the JSON file to the course directory in the PHP directory
         php_json_file = php_course_dir / json_file.name
@@ -555,6 +623,20 @@ VIDEO_DOWNLOAD_QUALITY="{video_quality}"
         # Extract course folder name from the URL
         course_folder = course_url.split("/")[-1]
 
+        # Determine the target directory for the course
+        target_dir = Path(self.base_dir) / "data" / "courses" / course_folder / "downloads"
+
+        # If we have a config object, use its base_dir setting
+        if self.config and "global" in self.config.config:
+            base_dir_template = self.config.config["global"].get("base_dir")
+            if base_dir_template:
+                target_dir = Path(self.base_dir) / base_dir_template.format(
+                    course_name=course_folder
+                )
+
+        # Create the target directory if it doesn't exist
+        os.makedirs(target_dir, exist_ok=True)
+
         # Set up environment variables
         env = os.environ.copy()
         env["COURSE_LINK"] = course_url
@@ -563,6 +645,7 @@ VIDEO_DOWNLOAD_QUALITY="{video_quality}"
         env["VIDEO_DOWNLOAD_QUALITY"] = video_quality
         env["CHECK_UPDATES_ONLY"] = str(check_updates_only).lower()
         env["COURSE_NAME"] = course_folder
+        env["TARGET_DIR"] = str(target_dir)  # Pass the target directory to the PHP script
 
         # Change to the PHP script directory
         prev_dir = os.getcwd()

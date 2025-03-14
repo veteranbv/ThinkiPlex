@@ -7,7 +7,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ThinkiDownloader
-    working_dir: /app
+    working_dir: ${TARGET_DIR:-/app/data}
     environment:
       - COURSE_LINK=${COURSE_LINK}
       - CLIENT_DATE=${CLIENT_DATE}
@@ -15,8 +15,9 @@ services:
       - VIDEO_DOWNLOAD_QUALITY=${VIDEO_DOWNLOAD_QUALITY}
       - COURSE_NAME=${COURSE_NAME}
       - CHECK_UPDATES_ONLY=${CHECK_UPDATES_ONLY}
+      - TARGET_DIR=${TARGET_DIR:-/app/data}
     volumes:
-      - .:/app
-      - ../../../data/courses/${COURSE_NAME}:/app/${COURSE_NAME}
+      - .:/app/scripts
+      - ${TARGET_DIR:-/app/data}:${TARGET_DIR:-/app/data}
     command: >
-      sh -c "php thinkidownloader3.php ${COURSE_LINK} && cp ${COURSE_NAME}/*.json /app/${COURSE_NAME}/ || true"
+      sh -c "php /app/scripts/thinkidownloader3.php ${COURSE_LINK}"

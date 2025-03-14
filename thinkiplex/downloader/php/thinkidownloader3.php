@@ -1,9 +1,20 @@
 <?php
 set_time_limit(0);
-require("config.php");
-$pwd = '';
-$root_project_dir = '';
+require("/app/scripts/config.php");
+$pwd = getcwd(); // Current working directory is already the target directory
+$root_project_dir = $pwd;
 $revision = "Revision 6.4 ~ 27th November 2024";
+
+// Get target directory from environment variable (should match current directory)
+$target_dir = getenv('TARGET_DIR');
+if (empty($target_dir)) {
+	$target_dir = '/app/data';
+}
+
+// Verify we're in the target directory
+if ($pwd != $target_dir) {
+	echo "Warning: Current directory ($pwd) doesn't match target directory ($target_dir). This may cause issues." . PHP_EOL;
+}
 
 // Add global variables to track download statistics
 $download_stats = [
@@ -16,9 +27,10 @@ error_reporting(E_ALL); //Enable error reporting to see any issues
 ini_set('display_errors', 1);
 echo "THINKIFIC DOWNLOADER".PHP_EOL.$revision.PHP_EOL."Author : SumeetWeb ~ https://github.com/sumeetweb".PHP_EOL."Consider buying me a coffee at : https://www.ko-fi.com/sumeet".PHP_EOL."Want to download only selected videos? Thinki-Parser is available! : https://sumeetweb.github.io/Thinki-Parser/".PHP_EOL;
 echo "----------------------------------------------------------".PHP_EOL;
-require("include/file.functions.php");
-require("include/downloader.functions.php");
-require("include/wistia.downloader.php");
+echo "Working directory: " . $pwd . PHP_EOL;
+require("/app/scripts/include/file.functions.php");
+require("/app/scripts/include/downloader.functions.php");
+require("/app/scripts/include/wistia.downloader.php");
 
 // Run.
 // If --json, then read from json file.
@@ -67,13 +79,10 @@ if(in_array("--json", $argv) && isset($argv[2])) {
 	// Initialize course directory
 	init_course($data);
 
-	// Save course data in the course directory
-	$course_name = filter_filename($data["course"]["name"]);
-	// Ensure the course directory exists
-	if (!file_exists($course_name)) {
-		mkdir($course_name, 0777, true);
-	}
-	file_put_contents($course_name."/".$course_id.".json", $response);
+	// Save course data directly in the working directory
+	$course_id = $data["course"]["slug"];
+	file_put_contents($course_id.".json", $response);
+	echo "Saved course data to: ".$course_id.".json".PHP_EOL;
 
 	// Display download summary
 	display_download_summary();

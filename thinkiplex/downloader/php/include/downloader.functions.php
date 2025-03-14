@@ -3,21 +3,13 @@
 
 function init_course($datas)
 {
-    global $pwd, $root_project_dir;
-    $course_name = filter_filename($datas["course"]["name"]);
-    $prev_dir = getcwd();
-    $root_project_dir = getcwd();
+    global $pwd, $root_project_dir, $target_dir;
 
-    // Create course folder safely
-    if (!file_exists($course_name)) {
-        mkdir($course_name, 0777);
-    }
+    // We're already in the target directory, so no need to change directories
+    echo "Working directly in: " . $pwd . PHP_EOL;
 
-    chdir($course_name);
-    $pwd = getcwd();
-    // Init Done.
+    // Create chapter folders and download content
     create_chap_folder($datas);
-    chdir($prev_dir);
 }
 
 function create_chap_folder($datas)

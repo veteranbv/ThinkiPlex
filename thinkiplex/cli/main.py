@@ -12,8 +12,8 @@ from pathlib import Path
 
 import yaml
 
-from thinkiplex.cli.course_selector import load_config
-from thinkiplex.downloader import PHPDownloader
+from thinkiplex.downloader.php_wrapper import PHPDownloader
+from thinkiplex.utils import Config
 
 # Configure logging
 logging.basicConfig(
@@ -35,16 +35,16 @@ def create_parser() -> argparse.ArgumentParser:
 Examples:
   # Run the setup wizard to configure a new course
   thinkiplex --setup
-        
+
   # List configured courses
   thinkiplex --list-courses
-  
+
   # Process a specific course
   thinkiplex --course <course-name>
-  
+
   # Update authentication data for a course
   thinkiplex --course <course-name> --update-auth --client-date "..." --cookie-data "..."
-"""
+""",
     )
 
     parser.add_argument(
@@ -177,9 +177,7 @@ def main() -> int:
             setup_wizard()
             return 0
         except ImportError:
-            logger.error(
-                "Setup wizard not found. Please check installation."
-            )
+            logger.error("Setup wizard not found. Please check installation.")
             return 1
 
     # If list-courses flag is set, list available courses and exit
@@ -188,9 +186,21 @@ def main() -> int:
         return 0
 
     # Load configuration
-    course_name, course_config = load_config(args.course, config_path)
-    if course_name is None or course_config is None:
-        return 1
+    config = Config(str(config_path))
+    if args.course:
+        course_config = config.get_course_config(args.course)
+        if not course_config:
+            logger.error(f"Course {args.course} not found in configuration")
+            return 1
+        course_name = args.course
+    else:
+        # If no course specified, use the first one in config
+        courses = config.get_courses()
+        if not courses:
+            logger.error("No courses found in configuration")
+            return 1
+        course_name = next(iter(courses))
+        course_config = config.get_course_config(course_name)
 
     logger.info(f"Processing course: {course_name}")
 
@@ -199,7 +209,7 @@ def main() -> int:
     os.makedirs(course_dir, exist_ok=True)
 
     # Initialize the downloader
-    downloader = PHPDownloader(base_dir)
+    downloader = PHPDownloader(base_dir, config=config)
 
     # Determine whether to run the downloader
     run_downloader = course_config.get("run_downloader", False)
