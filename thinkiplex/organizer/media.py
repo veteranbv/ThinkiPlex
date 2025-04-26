@@ -39,26 +39,32 @@ class MediaProcessor:
         Returns:
             Path to the video file, or None if not found
         """
+        # Define common video extensions
+        video_extensions = [".mp4", ".mkv", ".avi", ".mov", ".webm", ".m4v"]
+
+        # Define priority patterns to search in first
+        priority_patterns = ["watch", "video", "playback", "lesson"]
+
         # First, try to find video files in subdirectories that match specific patterns
         video_dirs = []
         for root, dirs, _ in os.walk(directory):
             for d in dirs:
-                if any(
-                    pattern in d.lower() for pattern in ["watch", "video", "playback"]
-                ):
+                if any(pattern in d.lower() for pattern in priority_patterns):
                     video_dirs.append(os.path.join(root, d))
 
         # Search in video directories first
         for video_dir in video_dirs:
             for root, _, files in os.walk(video_dir):
                 for file in files:
-                    if file.endswith(".mp4"):
+                    file_ext = os.path.splitext(file)[1].lower()
+                    if file_ext in video_extensions:
                         return os.path.join(root, file)
 
         # If not found, search the entire directory
         for root, _, files in os.walk(directory):
             for file in files:
-                if file.endswith(".mp4"):
+                file_ext = os.path.splitext(file)[1].lower()
+                if file_ext in video_extensions:
                     return os.path.join(root, file)
 
         return None
@@ -129,9 +135,7 @@ class MediaProcessor:
                 os.remove(temp_path)
             raise MediaProcessingError(f"Failed to add metadata to {video_path}: {e}") from e
 
-    def extract_audio_from_video(
-        self, video_path: str, audio_path: str, metadata: dict
-    ) -> bool:
+    def extract_audio_from_video(self, video_path: str, audio_path: str, metadata: dict) -> bool:
         """Extract audio from a video file.
 
         Args:
@@ -180,7 +184,9 @@ class MediaProcessor:
             return True
         except Exception as e:
             logger.error(f"Failed to extract audio: {e}")
-            raise MediaProcessingError(f"Failed to extract audio from {video_path} to {audio_path}: {e}") from e
+            raise MediaProcessingError(
+                f"Failed to extract audio from {video_path} to {audio_path}: {e}"
+            ) from e
 
     def process_episode(
         self, video_path: str, plex_path: str, audio_dir: str, metadata: dict
@@ -227,20 +233,18 @@ class MediaProcessor:
                     f"{os.path.splitext(os.path.basename(plex_path))[0]}.{self.audio_format}",
                 )
 
-                self.extract_audio_from_video(
-                    video_path, audio_path, audio_metadata
-                )
+                self.extract_audio_from_video(video_path, audio_path, audio_metadata)
 
             return True
         except (FileSystemError, MediaProcessingError) as e:
             logger.error(f"Error processing episode: {e}")
             raise
-        
+
     def process_episodes_parallel(
         self, episodes_data: List[Dict[str, any]], max_workers: int = 4
     ) -> List[bool]:
         """Process multiple episodes in parallel.
-        
+
         Args:
             episodes_data: List of episode data dictionaries containing:
                 - video_path: Path to the source video file
@@ -248,46 +252,45 @@ class MediaProcessor:
                 - audio_dir: Directory to store extracted audio
                 - metadata: Dictionary of metadata to add
             max_workers: Maximum number of worker processes
-            
+
         Returns:
             List of results (True for success, False for failure)
         """
+
         # Define worker function
         def process_episode_worker(data: Dict[str, any]) -> bool:
             try:
                 return self.process_episode(
-                    data["video_path"],
-                    data["plex_path"],
-                    data["audio_dir"],
-                    data["metadata"]
+                    data["video_path"], data["plex_path"], data["audio_dir"], data["metadata"]
                 )
             except Exception as e:
                 logger.error(f"Error processing episode: {e}")
                 return False
-        
+
         # Use parallel_map utility
-        logger.info(f"Processing {len(episodes_data)} episodes in parallel with {max_workers} workers")
-        results = parallel_map(
-            process_episode_worker,
-            episodes_data,
-            max_workers=max_workers
+        logger.info(
+            f"Processing {len(episodes_data)} episodes in parallel with {max_workers} workers"
         )
-        
-        logger.info(f"Completed processing {sum(1 for r in results if r)} of {len(results)} episodes")
+        results = parallel_map(process_episode_worker, episodes_data, max_workers=max_workers)
+
+        logger.info(
+            f"Completed processing {sum(1 for r in results if r)} of {len(results)} episodes"
+        )
         return results
-        
+
     def extract_audio_batch(
         self, videos: List[Tuple[str, str, Dict[str, any]]], max_workers: int = 4
     ) -> List[bool]:
         """Extract audio from multiple videos in parallel.
-        
+
         Args:
             videos: List of (video_path, audio_path, metadata) tuples
             max_workers: Maximum number of worker processes
-            
+
         Returns:
             List of results (True for success, False for failure)
         """
+
         def extract_worker(data: Tuple[str, str, Dict[str, any]]) -> bool:
             video_path, audio_path, metadata = data
             try:
@@ -295,9 +298,13 @@ class MediaProcessor:
             except Exception as e:
                 logger.error(f"Error extracting audio: {e}")
                 return False
-        
-        logger.info(f"Extracting audio from {len(videos)} videos in parallel with {max_workers} workers")
+
+        logger.info(
+            f"Extracting audio from {len(videos)} videos in parallel with {max_workers} workers"
+        )
         results = parallel_map(extract_worker, videos, max_workers=max_workers)
-        
-        logger.info(f"Completed extracting audio from {sum(1 for r in results if r)} of {len(results)} videos")
+
+        logger.info(
+            f"Completed extracting audio from {sum(1 for r in results if r)} of {len(results)} videos"
+        )
         return results

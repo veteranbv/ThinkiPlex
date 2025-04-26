@@ -9,6 +9,8 @@ import os
 import re
 import shutil
 import subprocess
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -53,35 +55,6 @@ def extract_title(directory_name: str) -> str:
     # Remove leading episode number and dot
     title = re.sub(r"^\d+\.\s*", "", directory_name)
 
-    # Extract more descriptive titles based on patterns
-
-    # Saturday Live Call pattern
-    if "saturday-live-call" in title.lower():
-        # Extract the main topic after the date
-        parts = title.split("-")
-        if len(parts) > 4:  # Has date and topic
-            # Join all parts after the date (which is typically parts[3])
-            topic = "-".join(parts[4:])
-            # Clean up the topic
-            topic = topic.replace("-", " ").strip()
-            # Capitalize words
-            topic = " ".join(word.capitalize() for word in topic.split())
-            if topic:
-                return f"Understanding {topic}"
-
-        # If we couldn't extract a good topic, use a generic title with the number
-        match = re.search(r"saturday-live-call-(\d+)", title.lower())
-        if match:
-            call_num = match.group(1)
-            return f"Saturday Live Call {call_num}"
-
-    # Heart Sync pattern
-    if "heart-sync" in title.lower():
-        match = re.search(r"heart-sync-(\d+)", title.lower())
-        if match:
-            sync_num = match.group(1)
-            return f"Heart Sync Session {sync_num}"
-
     # Remove trailing date if present
     title = re.sub(r"-\d+-\d+-\d+$", "", title)
 
@@ -102,10 +75,28 @@ def find_video_file(directory: Path) -> Optional[Path]:
     Returns:
         Path to the video file or None if not found
     """
+    # Define common video extensions
+    video_extensions = [".mp4", ".mkv", ".avi", ".mov", ".webm", ".m4v"]
+
+    # First try to find in paths that might contain lesson videos
+    priority_patterns = ["playback-lesson", "watch", "video", "playback"]
+
+    # Look in priority directories first
+    for root, _, files in os.walk(directory):
+        # Check if this directory matches any priority patterns
+        if any(pattern in root.lower() for pattern in priority_patterns):
+            for file in files:
+                file_ext = os.path.splitext(file)[1].lower()
+                if file_ext in video_extensions:
+                    return Path(root) / file
+
+    # If not found in priority directories, search the entire directory
     for root, _, files in os.walk(directory):
         for file in files:
-            if file.endswith(".mp4") and "playback-lesson" in root:
+            file_ext = os.path.splitext(file)[1].lower()
+            if file_ext in video_extensions:
                 return Path(root) / file
+
     return None
 
 
@@ -176,6 +167,7 @@ def extract_audio(
     audio_format: str = "mp3",
     metadata: Optional[Dict[str, str]] = None,
     chapter_titles: Optional[Dict[str, str]] = None,
+    session_types: Optional[Dict[str, Dict[str, str]]] = None,
 ) -> List[str]:
     """
     Extract audio from video files in a course directory.
@@ -189,6 +181,7 @@ def extract_audio(
         audio_format: Audio format (mp3, aac, flac, ogg)
         metadata: Additional metadata to add to the audio files
         chapter_titles: Mapping of chapter IDs to titles
+        session_types: Dictionary of session type patterns and their description templates
 
     Returns:
         List of processed files
@@ -231,6 +224,10 @@ def extract_audio(
                 audio_format=audio_format,
             )
 
+    # Default session type patterns if none provided
+    if session_types is None:
+        session_types = {}
+
     # Process each directory with video files, assigning sequential episode numbers starting from 01
     for i, (dir_num, dir_name) in enumerate(video_dirs):
         # Assign sequential episode number starting from 1
@@ -265,18 +262,43 @@ def extract_audio(
         # Generate a description based on the title and directory name
         description = f"Episode {ep_num} of the {show_name} course."
 
-        # Try to determine if this is a Saturday Live Call or Heart Sync session
-        if "saturday" in dir_name.lower() or "live call" in dir_name.lower():
-            description = (
-                f"Saturday Live Call session focusing on {title}. Part of the {show_name} course."
-            )
-        elif "heart sync" in dir_name.lower():
-            heart_sync_num = re.search(r"heart-sync-(\d+)", dir_name.lower())
-            if heart_sync_num:
-                sync_num = heart_sync_num.group(1)
-                description = f"Heart Sync session {sync_num} providing guided practice and experiential learning. Part of the {show_name} course."
-            else:
-                description = f"Heart Sync session providing guided practice and experiential learning. Part of the {show_name} course."
+        # Apply session type detection based on configured patterns
+        dir_name_lower = dir_name.lower()
+
+        # Try to match session type patterns
+        for session_key, session_info in session_types.items():
+            if session_key in dir_name_lower:
+                # Try to extract session number if pattern provided
+                if "pattern" in session_info:
+                    match = re.search(session_info["pattern"], dir_name_lower)
+                    if match and "template" in session_info:
+                        # If found a number, format it into the template
+                        try:
+                            # Try positional formatting first
+                            description = session_info["template"].format(
+                                match.group(1), title=title, show_name=show_name, ep_num=ep_num
+                            )
+                        except (IndexError, KeyError):
+                            # Fall back to keyword formatting
+                            description = session_info["template"].format(
+                                title=title,
+                                show_name=show_name,
+                                session_num=match.group(1),
+                                ep_num=ep_num,
+                            )
+                    else:
+                        # Use default template if no match found
+                        description = session_info.get(
+                            "default_template",
+                            f"{session_key.replace('-', ' ').title()} focusing on {title}. Part of the {show_name} course.",
+                        )
+                else:
+                    # No pattern defined, use simple template
+                    description = session_info.get(
+                        "template",
+                        f"{session_key.replace('-', ' ').title()} focusing on {title}. Part of the {show_name} course.",
+                    )
+                break
 
         # Build metadata arguments
         metadata_args = [
@@ -289,7 +311,7 @@ def extract_audio(
             "-metadata",
             f"track={ep_num}",
             "-metadata",
-            "date=2025",
+            f"date={datetime.now().year}",
             "-metadata",
             "genre=Educational",
             "-metadata",
@@ -356,12 +378,32 @@ def extract_course_audio(
     """
     # Get course data to extract chapter titles
     course_data = {}
+    config = None
     try:
         config = Config(str(base_dir / "config" / "thinkiplex.yaml"))
         downloader = PHPDownloader(base_dir, config=config)
         course_data = downloader.get_course_data(course_name)
     except Exception as e:
         logger.warning(f"Failed to get course data: {e}")
+
+    # Read session types from config if available
+    session_types = None
+    if config:
+        # Try to get global session types first
+        session_types = config.get("session_types", {})
+
+        # Check for course-specific session types that would override globals
+        course_configs = config.get("courses", {})
+        if course_name in course_configs:
+            course_config = course_configs.get(course_name, {})
+            if "session_types" in course_config:
+                # Course-specific settings override global settings
+                session_types = course_config.get("session_types")
+
+    if not session_types:
+        # Default empty session types if not defined in config
+        session_types = {}
+        logger.info("No session types found in configuration")
 
     # Extract chapter titles from course data
     chapter_titles = {}
@@ -451,9 +493,11 @@ def extract_course_audio(
             os.makedirs(video_output_dir, exist_ok=True)
 
             # Check if video files already exist
-            existing_video_files = list(video_output_dir.glob("*.mp4")) + list(
-                video_output_dir.glob("*.mkv")
-            )
+            existing_video_files = []
+            video_extensions = [".mp4", ".mkv", ".avi", ".mov", ".webm", ".m4v"]
+            for ext in video_extensions:
+                existing_video_files.extend(list(video_output_dir.glob(f"*{ext}")))
+
             if len(existing_video_files) >= video_dir_count:
                 logger.info(
                     f"Video files already exist in {video_output_dir}. Skipping video processing."
@@ -467,6 +511,7 @@ def extract_course_audio(
                 show_name=formatted_show_name,
                 season=season,
                 chapter_titles=episode_titles,
+                session_types=session_types,
             )
 
             return True
@@ -481,6 +526,7 @@ def extract_course_audio(
             audio_quality=audio_quality,
             audio_format=audio_format,
             chapter_titles=episode_titles,  # Pass episode titles instead of chapter titles
+            session_types=session_types,
         )
 
         # Also process videos for Plex
@@ -504,6 +550,7 @@ def extract_course_audio(
             show_name=formatted_show_name,
             season=season,
             chapter_titles=episode_titles,
+            session_types=session_types,
         )
 
         return True
@@ -518,6 +565,7 @@ def process_videos_for_plex(
     show_name: str,
     season: str = "01",
     chapter_titles: Optional[Dict[str, str]] = None,
+    session_types: Optional[Dict[str, Dict[str, str]]] = None,
 ) -> List[str]:
     """
     Process video files for Plex.
@@ -528,6 +576,9 @@ def process_videos_for_plex(
         show_name: Name of the show
         season: Season number
         chapter_titles: Mapping of chapter IDs to titles
+        session_types: Dictionary of session type patterns and their description templates
+                      e.g. {"workshop": {"pattern": "workshop-(\\d+)",
+                                           "template": "Workshop session {0} providing hands-on practice"}}
 
     Returns:
         List of processed files
@@ -536,6 +587,10 @@ def process_videos_for_plex(
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
+
+    # Default session type patterns if none provided
+    if session_types is None:
+        session_types = {}
 
     processed_files = []
 
@@ -562,25 +617,24 @@ def process_videos_for_plex(
 
         video_file = find_video_file(dir_path)
         if video_file:
-            video_dirs.append((dir_num, dir_name))
+            video_dirs.append((dir_num, dir_name, video_file))
+
+    # Define common video extensions for existing file check
+    video_extensions = [".mp4", ".mkv", ".avi", ".mov", ".webm", ".m4v"]
 
     # Check if we already have the expected number of video files
-    existing_video_files = list(output_dir.glob("*.mp4")) + list(output_dir.glob("*.mkv"))
+    existing_video_files = []
+    for ext in video_extensions:
+        existing_video_files.extend(list(output_dir.glob(f"*{ext}")))
+
     if len(existing_video_files) >= len(video_dirs):
         logger.info(f"All video files already exist in {output_dir}. Skipping video processing.")
         return [str(f) for f in existing_video_files]
 
     # Process each directory with video files, assigning sequential episode numbers starting from 01
-    for i, (dir_num, dir_name) in enumerate(video_dirs):
+    for i, (dir_num, dir_name, video_file) in enumerate(video_dirs):
         # Assign sequential episode number starting from 1
         ep_num = f"{i + 1:02d}"  # Format as two digits with leading zero
-
-        dir_path = course_dir / dir_name
-        video_file = find_video_file(dir_path)
-
-        if not video_file:
-            logger.warning(f"No video file found in {dir_path}")
-            continue
 
         # Extract title from directory name
         title = extract_title(dir_name)
@@ -591,7 +645,7 @@ def process_videos_for_plex(
 
         logger.info(f"Processing video {title}")
 
-        # Create output filename with the same format as the audio files
+        # Get original file extension and use it for the output
         video_ext = os.path.splitext(video_file)[1]
         output_filename = f"{show_name} - s{season}e{ep_num} - {title}{video_ext}"
         output_file = output_dir / output_filename
@@ -599,38 +653,72 @@ def process_videos_for_plex(
         # Generate a description based on the title and directory name
         description = f"Episode {ep_num} of the {show_name} course."
 
-        # Try to determine if this is a Saturday Live Call or Heart Sync session
-        if "saturday" in dir_name.lower() or "live call" in dir_name.lower():
-            description = (
-                f"Saturday Live Call session focusing on {title}. Part of the {show_name} course."
-            )
-        elif "heart sync" in dir_name.lower():
-            heart_sync_num = re.search(r"heart-sync-(\d+)", dir_name.lower())
-            if heart_sync_num:
-                sync_num = heart_sync_num.group(1)
-                description = f"Heart Sync session {sync_num} providing guided practice and experiential learning. Part of the {show_name} course."
-            else:
-                description = f"Heart Sync session providing guided practice and experiential learning. Part of the {show_name} course."
+        # Apply session type detection based on configured patterns
+        dir_name_lower = dir_name.lower()
+        session_type_detected = False
 
-        # Skip if file already exists and has correct size
+        # Try to match session type patterns
+        for session_key, session_info in session_types.items():
+            if session_key in dir_name_lower:
+                # Try to extract session number if pattern provided
+                if "pattern" in session_info:
+                    match = re.search(session_info["pattern"], dir_name_lower)
+                    if match and "template" in session_info:
+                        # If found a number, format it into the template
+                        try:
+                            # Try positional formatting first
+                            description = session_info["template"].format(
+                                match.group(1), title=title, show_name=show_name, ep_num=ep_num
+                            )
+                        except (IndexError, KeyError):
+                            # Fall back to keyword formatting
+                            description = session_info["template"].format(
+                                title=title,
+                                show_name=show_name,
+                                session_num=match.group(1),
+                                ep_num=ep_num,
+                            )
+                    else:
+                        # Use default template if no match found
+                        description = session_info.get(
+                            "default_template",
+                            f"{session_key.replace('-', ' ').title()} focusing on {title}. Part of the {show_name} course.",
+                        )
+                else:
+                    # No pattern defined, use simple template
+                    description = session_info.get(
+                        "template",
+                        f"{session_key.replace('-', ' ').title()} focusing on {title}. Part of the {show_name} course.",
+                    )
+
+                session_type_detected = True
+                break
+
+        # Check if file already exists
+        skip_processing = False
         if output_file.exists():
-            file_size_original = os.path.getsize(video_file)
-            file_size_output = os.path.getsize(output_file)
+            # Compare file modification times instead of sizes
+            source_mtime = os.path.getmtime(video_file)
+            target_mtime = os.path.getmtime(output_file)
+            source_size = os.path.getsize(video_file)
+            target_size = os.path.getsize(output_file)
 
-            # Check if file sizes are similar (within 5%)
-            size_diff_percent = (
-                abs(file_size_original - file_size_output) / file_size_original * 100
-            )
-
-            if size_diff_percent < 5:
-                logger.info(f"Skipping video {title} (already exists)")
+            # If target file is newer than source and sizes are close, skip
+            if (
+                target_mtime > source_mtime
+                and abs(target_size - source_size) / max(source_size, 1) < 0.10
+            ):
+                logger.info(f"Skipping video {title} (already exists and is up to date)")
                 processed_files.append(str(output_file))
-                continue
+                skip_processing = True
             else:
-                logger.warning(f"File size mismatch for {title}. Re-copying.")
+                logger.info(f"Re-processing {title} (file changed or size mismatch)")
 
-        # First copy the video file to a temporary location
-        temp_file = output_file.with_suffix(f".temp{video_ext}")
+        if skip_processing:
+            continue
+
+        # Use a unique temporary filename to avoid conflicts
+        temp_file = output_file.with_suffix(f".temp_{int(time.time())}{video_ext}")
         try:
             logger.info(f"Copying {video_file} to temporary file")
             shutil.copy2(video_file, temp_file)
@@ -660,7 +748,7 @@ def process_videos_for_plex(
                 str(output_file),
             ]
 
-            # Run ffmpeg to add metadata
+            # Run ffmpeg
             subprocess.run(
                 ffmpeg_cmd,
                 check=True,
@@ -669,14 +757,15 @@ def process_videos_for_plex(
             )
 
             # Remove the temporary file
-            os.remove(temp_file)
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
 
             logger.info(f"Processed video {title} with metadata")
             processed_files.append(str(output_file))
         except Exception as e:
             logger.error(f"Failed to process video: {e}")
             # Clean up temporary file if it exists
-            if temp_file.exists():
+            if os.path.exists(temp_file):
                 os.remove(temp_file)
 
     logger.info(f"Video processing complete. {len(processed_files)} files processed.")

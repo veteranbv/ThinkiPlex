@@ -261,6 +261,9 @@ You can generate transcriptions and summaries in several ways:
 
    # Disable speaker diarization (not recommended for multi-speaker content)
    python -m thinkiplex --course your-course-name --transcribe --no-diarization
+
+   # Reprocess existing summaries (regenerate summaries that already exist)
+   python -m thinkiplex --course your-course-name --transcribe --reprocess-summaries
    ```
 
 2. **Interactive Menu**:

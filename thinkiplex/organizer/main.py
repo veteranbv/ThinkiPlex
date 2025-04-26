@@ -79,9 +79,7 @@ def organize_course(
             episode_num = episodes_processed + 1
             episode_num_str = f"{episode_num:02d}"
 
-            logger.info(
-                f"Processing lesson: {lesson_title} (Episode {episode_num_str})"
-            )
+            logger.info(f"Processing lesson: {lesson_title} (Episode {episode_num_str})")
 
             # Handle different lesson types
             if lesson_type == "video":
@@ -148,8 +146,11 @@ def process_video_lesson(
         logger.warning(f"Video file not found for lesson: {lesson_title}")
         return
 
+    # Get the original file extension
+    video_ext = os.path.splitext(video_file)[1]
+
     # Create the Plex-formatted filename
-    plex_filename = f"{show_name} - s{season}e{episode_num} - {lesson_title}.mp4"
+    plex_filename = f"{show_name} - s{season}e{episode_num} - {lesson_title}{video_ext}"
     plex_file = season_dir / plex_filename
 
     # Copy the video file to the Plex directory
@@ -200,9 +201,7 @@ def process_document_lesson(
         return
 
     # Create the Plex-formatted filename
-    plex_filename = (
-        f"{show_name} - s{season}e{episode_num} - {lesson_title}{document_file.suffix}"
-    )
+    plex_filename = f"{show_name} - s{season}e{episode_num} - {lesson_title}{document_file.suffix}"
     plex_file = season_dir / plex_filename
 
     # Copy the document file to the Plex directory
@@ -232,7 +231,9 @@ def process_presentation_lesson(
         return
 
     # Create the Plex-formatted filename
-    plex_filename = f"{show_name} - s{season}e{episode_num} - {lesson_title}{presentation_file.suffix}"
+    plex_filename = (
+        f"{show_name} - s{season}e{episode_num} - {lesson_title}{presentation_file.suffix}"
+    )
     plex_file = season_dir / plex_filename
 
     # Copy the presentation file to the Plex directory
@@ -243,9 +244,7 @@ def process_presentation_lesson(
     audio_file = find_audio_file(source_dir, lesson_id)
     if audio_file and audio_dir:
         # Create the audio filename
-        audio_filename = (
-            f"{show_name} - s{season}e{episode_num} - {lesson_title}.{audio_format}"
-        )
+        audio_filename = f"{show_name} - s{season}e{episode_num} - {lesson_title}.{audio_format}"
         output_audio_file = audio_dir / audio_filename
 
         # Convert the audio file
@@ -264,15 +263,34 @@ def process_presentation_lesson(
 
 def find_video_file(source_dir: Path, lesson_id: str) -> Optional[Path]:
     """Find the video file for a lesson."""
+    # Define common video extensions
+    video_extensions = [".mp4", ".mkv", ".avi", ".mov", ".webm", ".m4v"]
+
     # Look for video files in the lesson directory
     lesson_dir = source_dir / lesson_id
     if not lesson_dir.exists():
         return None
 
-    # Look for MP4 files
-    video_files = list(lesson_dir.glob("*.mp4"))
-    if video_files:
-        return video_files[0]
+    # Search for video files using each extension
+    for ext in video_extensions:
+        video_files = list(lesson_dir.glob(f"*{ext}"))
+        if video_files:
+            return video_files[0]
+
+    # Check subdirectories for video files (e.g., "watch", "video", "playback" folders)
+    priority_dirs = ["watch", "video", "playback", "lesson"]
+    for subdir in lesson_dir.iterdir():
+        if subdir.is_dir() and any(pattern in subdir.name.lower() for pattern in priority_dirs):
+            for ext in video_extensions:
+                video_files = list(subdir.glob(f"*{ext}"))
+                if video_files:
+                    return video_files[0]
+
+    # If still not found, do a recursive search in all subdirectories
+    for root, _, files in os.walk(lesson_dir):
+        for file in files:
+            if any(file.lower().endswith(ext) for ext in video_extensions):
+                return Path(root) / file
 
     return None
 

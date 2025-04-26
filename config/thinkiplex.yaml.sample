@@ -6,6 +6,28 @@ global:
   audio_format: "mp3"  # Options: mp3, aac, flac, ogg
   ffmpeg_presentation_merge: true  # Whether to merge audio and video files of presentations
 
+  # Global session types configuration - applies to all courses unless overridden
+  session_types:
+    # Pattern for Live Sessions
+    live-session:
+      # Regular expression to extract session number
+      pattern: "live-session-(\\d+)"
+      # Template for description - can use {0} for first match group or named parameters
+      template: "Live session {0} focusing on {title}. Part of the {show_name} course."
+      # Optional default template if pattern doesn't match
+      default_template: "Live session focusing on {title}. Part of the {show_name} course."
+
+    # Pattern for Workshop sessions
+    workshop:
+      pattern: "workshop-(\\d+)"
+      template: "Workshop session {0} providing hands-on practice and experiential learning. Part of the {show_name} course."
+      default_template: "Workshop session providing hands-on practice and experiential learning. Part of the {show_name} course."
+
+    # Pattern for Q&A sessions
+    qa-session:
+      pattern: "qa-session-(\\d+)"
+      template: "Q&A Session {0} addressing student questions about {title}. Part of the {show_name} course."
+
 # Claude AI models configuration
 claude:
   models:
@@ -132,3 +154,20 @@ courses:
     video_download_quality: "720p"
     # Optional: Set to false to disable running the downloader
     # run_downloader: false
+
+    # Course-specific session types - overrides global session types for this course
+    session_types:
+      # Custom pattern for this course's live sessions
+      custom-session:
+        pattern: "custom-session-(\\d+)"
+        template: "Custom Session {0} with practical exercises on {title}. Part of the {show_name} course."
+
+      # Override the global workshop pattern with course-specific template
+      workshop:
+        pattern: "workshop-(\\d+)"
+        template: "Advanced Workshop {0} - {title}. From the {show_name} curriculum."
+
+      # Custom pattern for practice sessions in this course
+      practice:
+        pattern: "practice-(\\d+)"
+        template: "Practice Session {0}: Hands-on practice with {title} techniques. Part of the {show_name} course."

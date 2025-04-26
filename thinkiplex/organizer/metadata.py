@@ -37,9 +37,7 @@ class MetadataExtractor:
             return int(match.group(1))
         return 0
 
-    def extract_from_course_data(
-        self, ep_num: int
-    ) -> Tuple[Optional[str], Optional[str]]:
+    def extract_from_course_data(self, ep_num: int) -> Tuple[Optional[str], Optional[str]]:
         """Extract title and description from course data if available.
 
         Args:
@@ -88,12 +86,8 @@ class MetadataExtractor:
 
         # Extract from directory name
         title = re.sub(r"^[0-9]+\.\s*", "", dir_name)
-        title = re.sub(
-            r"-[0-9]+-[0-9]+-[0-9]+$", "", title
-        )  # Remove date suffix if present
-        title = title.replace(
-            "-", " "
-        ).title()  # Replace hyphens with spaces and capitalize
+        title = re.sub(r"-[0-9]+-[0-9]+-[0-9]+$", "", title)  # Remove date suffix if present
+        title = title.replace("-", " ").title()  # Replace hyphens with spaces and capitalize
 
         logger.info(f"Using extracted title for episode {ep_num}: {title}")
         return title
@@ -116,11 +110,15 @@ class MetadataExtractor:
         # Generate a more descriptive generic description based on the directory name
         title = self.get_episode_title(ep_num, dir_name)
 
-        # Check if it's a live call or heart sync session
+        # Generate description based on directory name patterns
         if "live" in dir_name.lower() or "call" in dir_name.lower():
-            description = f"Live call session {ep_num} focusing on {title.lower()}"
-        elif "heart" in dir_name.lower() or "sync" in dir_name.lower():
-            description = f"Heart Sync session {ep_num} providing guided practice related to {title.lower()}"
+            description = f"Live session {ep_num} focusing on {title.lower()}"
+        elif "workshop" in dir_name.lower():
+            description = f"Workshop session {ep_num} with practical exercises on {title.lower()}"
+        elif "practice" in dir_name.lower():
+            description = (
+                f"Practice session {ep_num} with guided exercises related to {title.lower()}"
+            )
         else:
             description = f"Episode {ep_num}: {title}"
 

@@ -128,6 +128,21 @@ Available prompt types:
 - `comprehensive`: In-depth summary capturing key facts, context, and nuances
 - `course_notes`: Structured course notes with key concepts and actionable takeaways
 
+#### Reprocess Existing Summaries
+
+To regenerate summaries for files that already have summaries:
+
+```bash
+python -m thinkiplex process course-name --transcribe --reprocess-summaries
+```
+
+This option is useful when:
+
+- You want to try a different Claude model
+- You want to use a different prompt type
+- You want to regenerate summaries with improved AI models
+- You've made changes to the prompt templates
+
 #### Process Specific Sessions
 
 Process only specific sessions of a course:

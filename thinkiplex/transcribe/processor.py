@@ -18,6 +18,12 @@ from .services.claude_service import ClaudeService
 logger = get_logger()
 
 
+class AIProcessingError(Exception):
+    """Exception raised when AI processing fails."""
+
+    pass
+
+
 class TranscriptionProcessor:
     """Processor for audio transcription and AI summary generation."""
 
@@ -85,7 +91,8 @@ class TranscriptionProcessor:
         Returns:
             str: The default prompt type
         """
-        return self.claude_service.default_prompt_type
+        default_type = self.claude_service.default_prompt_type
+        return default_type if default_type else "comprehensive"
 
     def process_course_materials(
         self,
@@ -93,6 +100,7 @@ class TranscriptionProcessor:
         prompt_type: str,
         base_dir: Optional[Path] = None,
         diarization: bool = False,
+        reprocess_summaries: bool = False,
     ) -> Dict[str, Any]:
         """Process all materials for a course.
 
@@ -101,12 +109,15 @@ class TranscriptionProcessor:
             prompt_type: Type of prompt to use for AI summary
             base_dir: Base directory for the course
             diarization: Whether to use speaker diarization
+            reprocess_summaries: Whether to reprocess existing summaries
 
         Returns:
             Dictionary with results
         """
         logger.info(f"Processing course: {course_name}")
         logger.info(f"Using prompt type: {prompt_type}")
+        if reprocess_summaries:
+            logger.info("Reprocessing existing summaries is enabled")
 
         # Define paths
         if base_dir is None:
@@ -152,7 +163,9 @@ class TranscriptionProcessor:
         for episode_number, dir_path in download_dirs:
             try:
                 logger.info(f"Processing download directory: {dir_path.name}")
-                result = self.process_download_directory(dir_path, prompt_type, diarization)
+                result = self.process_download_directory(
+                    dir_path, prompt_type, diarization, reprocess_summaries
+                )
                 if result:
                     results[dir_path.name] = result
             except Exception as e:
@@ -162,7 +175,11 @@ class TranscriptionProcessor:
         return {"results": results, "errors": errors}
 
     def process_download_directory(
-        self, download_dir: Path, prompt_type: str, diarization: bool = False
+        self,
+        download_dir: Path,
+        prompt_type: str,
+        diarization: bool = False,
+        reprocess_summaries: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """Process a single download directory.
 
@@ -170,6 +187,7 @@ class TranscriptionProcessor:
             download_dir: Path to the download directory
             prompt_type: Type of prompt to use for AI summary
             diarization: Whether to use speaker diarization
+            reprocess_summaries: Whether to reprocess existing summaries
 
         Returns:
             Dictionary with results or None if processing failed
@@ -226,7 +244,7 @@ class TranscriptionProcessor:
             logger.info(f"Saved transcript to {transcript_file}")
 
         # Check if summary already exists
-        if summary_file.exists():
+        if summary_file.exists() and not reprocess_summaries:
             logger.info(f"Summary already exists for {class_name}, using existing file")
             with open(summary_file, "r", encoding="utf-8") as f:
                 summary_text = f.read()

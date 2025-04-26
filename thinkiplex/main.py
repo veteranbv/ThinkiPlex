@@ -175,6 +175,11 @@ Examples:
         "--prompt-type",
         help="Type of prompt to use for AI summaries (options: comprehensive, course_notes, summarize, transcribe, analyze)",
     )
+    transcription_group.add_argument(
+        "--reprocess-summaries",
+        action="store_true",
+        help="Reprocess existing AI summaries",
+    )
 
     return parser
 
@@ -294,6 +299,7 @@ def main() -> int:
             claude_model="claude-3-5-sonnet-20240620",
             no_diarization=False,
             prompt_type="comprehensive",
+            reprocess_summaries=False,
         )
     else:
         args = parser.parse_args()
@@ -877,12 +883,28 @@ def main() -> int:
                 default_prompt = processor.get_default_prompt_type()
                 logger.info(f"Using default prompt type: {default_prompt}")
 
+            # Ask about reprocessing existing summaries
+            reprocess_summaries = (
+                input(
+                    "\nReprocess existing summaries?\n"
+                    "- If 'y', existing AI summaries will be regenerated\n"
+                    "- If 'n', existing summaries will be kept\n"
+                    "- Enter 'y' for yes or 'n' for no (default: n): "
+                ).lower()
+                == "y"
+            )
+            if reprocess_summaries:
+                print("Existing summaries will be reprocessed")
+            else:
+                print("Existing summaries will be kept")
+
             # Process the course
             results = processor.process_course_materials(
                 course_name=course_name,
                 prompt_type=args.prompt_type,
                 base_dir=base_dir,
                 diarization=diarization,
+                reprocess_summaries=reprocess_summaries,
             )
 
             # Print summary of results
@@ -986,6 +1008,21 @@ def interactive_menu_transcription() -> None:
             != "n"
         )
 
+        # Ask about reprocessing existing summaries
+        reprocess_summaries = (
+            input(
+                "\nReprocess existing summaries?\n"
+                "- If 'y', existing AI summaries will be regenerated\n"
+                "- If 'n', existing summaries will be kept\n"
+                "- Enter 'y' for yes or 'n' for no (default: n): "
+            ).lower()
+            == "y"
+        )
+        if reprocess_summaries:
+            print("Existing summaries will be reprocessed")
+        else:
+            print("Existing summaries will be kept")
+
         # Display available prompt types
         print("\n=== Available Prompt Types ===")
         for i, prompt_type in enumerate(available_prompt_types, 1):
@@ -1075,7 +1112,7 @@ def interactive_menu_transcription() -> None:
                 print(f"\nProcessing directory: {dir_path.name}")
                 try:
                     result = processor.process_download_directory(
-                        dir_path, selected_prompt_type, diarization
+                        dir_path, selected_prompt_type, diarization, reprocess_summaries
                     )
                     if result:
                         print(f"Successfully processed: {dir_path.name}")
@@ -1087,7 +1124,10 @@ def interactive_menu_transcription() -> None:
             # Process all course materials
             print("\nProcessing all course materials...")
             results = processor.process_course_materials(
-                course_name=course_name, prompt_type=selected_prompt_type, diarization=diarization
+                course_name=course_name,
+                prompt_type=selected_prompt_type,
+                diarization=diarization,
+                reprocess_summaries=reprocess_summaries,
             )
 
             # Display results
