@@ -118,15 +118,73 @@ The following content types are currently supported:
 
 ## Getting Authentication Data
 
-To download courses from Thinkific, you need to provide authentication data:
+To download courses from Thinkific, you need to provide authentication data from your browser session. Here's a detailed guide on how to get this data:
 
-1. Open your browser and navigate to your Thinkific course.
-2. Open the browser's Developer Tools (F12 or right-click > Inspect).
-3. Go to the "Network" tab.
-4. Refresh the page and look for requests containing `course_player/v2/courses/`.
-5. Click on the matched request and look for:
-   - `date` header value (for CLIENT_DATE)
-   - `cookie` header value (for COOKIE_DATA)
+### Using Chrome/Edge Developer Tools
+
+1. Open your Thinkific course in Chrome or Edge
+2. Open Developer Tools:
+   - Windows/Linux: Press `F12` or `Ctrl+Shift+I`
+   - macOS: Press `Cmd+Option+I`
+   - Or right-click anywhere on the page and select "Inspect"
+
+3. In Developer Tools:
+   - Click the "Network" tab
+   - Check the "Preserve log" checkbox
+   - Make sure "XHR" filter is selected
+
+4. Refresh the page and look for this specific request:
+
+   ```text
+   /api/course_player/v2/courses/your-course-name
+   ```
+
+   (where "your-course-name" is your actual course name)
+
+5. Click on this request and find:
+   - In the "Request Headers" section:
+     - Look for `x-thinkific-client-date` - This is your `client_date`
+     - Look for `cookie` - This is your `cookie_data`
+
+### Using Firefox Developer Tools
+
+1. Open your Thinkific course in Firefox
+2. Open Developer Tools:
+   - Press `F12` or `Cmd+Option+I`
+   - Or right-click and select "Inspect Element"
+
+3. In Developer Tools:
+   - Click the "Network" tab
+   - Check "Persist Logs"
+   - Filter by "XHR"
+
+4. Follow the same steps as Chrome to find the request and headers
+
+### Updating Your Configuration
+
+Once you have the authentication data, you can update it in two ways:
+
+1. **Using the CLI Command**:
+
+   ```bash
+   python -m thinkiplex --update-auth --course your-course-name --client-date "2025-04-25T17:36:48.198Z" --cookie-data "your-cookie-data"
+   ```
+
+2. **Editing thinkiplex.yaml**:
+
+   ```yaml
+   courses:
+     your-course-name:
+       client_date: "2025-04-25T17:36:48.198Z"
+       cookie_data: "your-cookie-data"
+   ```
+
+### Important Notes
+
+- The cookie data is sensitive authentication information. Never share it publicly.
+- Authentication data typically expires after some time. If downloads stop working, you'll need to update these values.
+- Make sure to copy the ENTIRE cookie string from the developer tools.
+- The client date should be in ISO 8601 format (e.g., "2025-04-25T17:36:48.198Z").
 
 ## Transcription and AI Summaries
 
