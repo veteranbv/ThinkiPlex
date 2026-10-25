@@ -1,3 +1,3 @@
-FROM php:8.3.7RC1-zts-alpine
+FROM php:8.3.36-zts-alpine
 
 RUN apk add --no-cache ffmpeg
