@@ -33,3 +33,12 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 2
+    # Stay on stable PHP. Docker tags use Bundler version syntax, where
+    # 8.6.0RC2 sorts before 8.6.0, so each range covers that release's
+    # alphas, betas and RCs and still allows the final release.
+    ignore:
+      - dependency-name: php
+        versions:
+          - ">= 8.6.0.a, < 8.6.0"
+          - ">= 8.7.0.a, < 8.7.0"
+          - ">= 9.0.0.a, < 9.0.0"
